@@ -2322,7 +2322,10 @@ export function createDirectiveRuntimeApp({
           transcriptLane.finish(transcriptOwner, true);
           transcriptOwner.preparationReleased = true;
         }
-        if (preparationClaimed) transcriptOwner?.finishPreparation?.();
+        if (preparationClaimed) {
+          transcriptOwner.preparationSettled = true;
+          transcriptOwner.finishPreparation?.();
+        }
       }
     }
   };
@@ -2412,11 +2415,24 @@ export function createDirectiveRuntimeApp({
         activeTimelineLoad.interrupted = true;
         return { handled: true, reason: 'timeline-load-pending' };
       }
-      if (!activeAnalysisController) releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
-      preparedNarrationDutyReport = null;
       const generationType = compact(type) || 'normal';
       const manualRecoveryEligible = automaticTrigger !== true
         && !['quiet', 'impersonate'].includes(generationType);
+      const stoppedOwner = transcriptLane.current(transcriptKey());
+      // Native Regenerate sets its busy flag before announcing the fresh gesture.
+      // A drained, canceled preparation with no output can transfer custody here;
+      // the busy flag alone cannot distinguish that new gesture from the old one.
+      if (manualRecoveryEligible && generationCancellation.stopped && !activeAnalysisController
+        && stoppedOwner?.revoked && stoppedOwner.phase === 'failed' && !stoppedOwner.running
+        && (!stoppedOwner.preparationStarted || stoppedOwner.preparationSettled === true)
+        && !finalizationFlights.has(stoppedOwner.key) && !failedFinalizations.has(stoppedOwner.key)
+        && !openingPublications.has(stoppedOwner.key) && currentChatIsBound()
+        && ['idle', 'active'].includes(host.chat.getGenerationActivity?.()?.status)
+        && stoppedOwner.baseline != null && stoppedOwner.baseline === transcriptObservation()) {
+        transcriptLane.releaseUnchanged(stoppedOwner);
+      }
+      if (!activeAnalysisController) releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
+      preparedNarrationDutyReport = null;
       pauseDossiers();
       const priorOwner = transcriptLane.current(transcriptKey());
       const preparingOwner = priorOwner?.phase === 'preparing' && !priorOwner.preparationStarted ? priorOwner : null;

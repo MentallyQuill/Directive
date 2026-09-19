@@ -147,6 +147,41 @@ for (const variant of ['missing-extra', 'empty-extra', 'native-extra', 'null-ext
   assert.deepEqual(await r.state(), r.before);
 }
 
+for (const drained of [false, true]) {
+  const r = await rig(), entered = deferred(), release = deferred();
+  const install = r.host.prompt.install.bind(r.host.prompt);
+  r.host.prompt.install = async (...args) => { entered.resolve(); await release.promise; return install(...args); };
+  r.app.handleHostGenerationStarted();
+  const preparing = r.app.getChatTurnOrchestrator().interceptGeneration({recoveryIntent:'native'});
+  await entered.promise;
+  await r.app.handleHostGenerationStopped();
+  if (drained) { release.resolve(); await preparing; }
+  r.setNativeActive(true);
+  r.app.handleHostGenerationStarted({type:'regenerate'});
+  const retry = await r.app.getChatTurnOrchestrator().interceptGeneration({type:'regenerate',recoveryIntent:'native'});
+  assert.equal(retry.abortDefaultGeneration, !drained, 'fresh Regenerate waits for canceled preparation to settle');
+  if (!drained) { release.resolve(); await preparing; }
+}
+
+for (const variant of ['unchanged', 'changed', 'assistant-output', 'output-before-stop', 'automatic', 'dry-run', 'unsupported']) {
+  const r = await rig();
+  r.app.handleHostGenerationStarted();
+  if (variant === 'output-before-stop') {
+    r.app.handleHostStreamTokenReceived();
+    r.chat.pushAssistantMessage({text:'Output before Stop.',hostMessageId:'assistant.before-stop'});
+  }
+  await r.app.handleHostGenerationStopped();
+  if (variant === 'changed') r.chat.pushPlayerMessage({text:'Changed source.',hostMessageId:'player.changed'});
+  if (variant === 'assistant-output') r.chat.pushAssistantMessage({text:'Unfinalized output.',hostMessageId:'assistant.changed'});
+  // Native menu Regenerate marks itself busy before GENERATION_STARTED.
+  r.setNativeActive(true);
+  if (variant === 'unsupported') r.host.chat.getGenerationActivity = () => ({status:'unsupported',replyStatus:'unsupported'});
+  r.app.handleHostGenerationStarted({type:'regenerate',automaticTrigger:variant==='automatic',dryRun:variant==='dry-run'});
+  const result = await r.app.getChatTurnOrchestrator().interceptGeneration({type:'regenerate',recoveryIntent:'native'});
+  assert.equal(result.abortDefaultGeneration, variant !== 'unchanged', `${variant}: fresh stopped gesture admits only exact unchanged transcript`);
+  assert.equal(r.chat.calls().filter(call=>call.type==='attachAssistantRuntimeMetadata').length,0);
+}
+
 for (const heldMethod of ['verifyCampaignChatSnapshot', 'cloneCampaignChat']) {
   const r = await rig();
   const saved = await r.app.saveGame({ name: 'Load async boundary' });
