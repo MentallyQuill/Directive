@@ -2413,7 +2413,20 @@ export function createDirectiveRuntimeApp({
         && typeof host.chat.prepareProtectedGeneration === 'function') {
         await enqueueStateMutation(() => host.chat.prepareProtectedGeneration({ type: generationType,
           expectedBinding: clone(state.campaignChatBinding), signal: generationCancellation.signal,
-          assertCurrent: () => { assertTurnActive(progressScope); transcriptLane.assertOwner(transcriptOwner, transcriptKey()); return currentChatIsBound(); },
+          regenerateSource: generationType === 'regenerate' ? transcriptOwner.protectedRegenerateSource : null,
+          assertCurrent: ({ phase } = {}) => {
+            assertTurnActive(progressScope);
+            transcriptLane.assertOwner(transcriptOwner, transcriptKey());
+            if (!currentChatIsBound()) return false;
+            if (phase === 'restored') {
+              const observed = transcriptObservation();
+              if (!transcriptOwner.protectedRegenerateSource || observed !== JSON.stringify(transcriptOwner.protectedRegenerateSource.rows)) return false;
+              // Restoring the prior source is not new output. Advance custody
+              // synchronously before display can yield to Stop or another event.
+              transcriptOwner.baseline = observed;
+            }
+            return true;
+          },
         }), { transcriptOwner });
       }
       const existingProtectedWrite = pendingProtectedTurns.get(transcriptKey());
@@ -2719,6 +2732,9 @@ export function createDirectiveRuntimeApp({
           const recent = host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
           const tail = Array.isArray(recent) ? recent.at(-1) : null;
           owner.regenerateSourceId = tail && !isUserMessage(tail) && activeSourceRow(tail) ? messageId(tail, tail) : null;
+          if (characterKnowledgeSettings()?.mode === 'protected' && owner.regenerateSourceId && owner.baseline) {
+            owner.protectedRegenerateSource = { rows: JSON.parse(owner.baseline), hostMessageId: owner.regenerateSourceId };
+          }
         }
       }
       if (manualRecoveryEligible) generationCancellation.resume();

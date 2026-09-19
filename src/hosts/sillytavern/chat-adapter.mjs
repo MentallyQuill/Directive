@@ -2108,18 +2108,40 @@ export function createSillyTavernChatAdapter({
     if (found.length > 1) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
     return found[0] || null;
   }
-  function prepareProtectedGeneration({ type, expectedBinding, assertCurrent, signal } = {}) {
+  function prepareProtectedGeneration({ type, expectedBinding, assertCurrent, signal, regenerateSource = null } = {}) {
     assertGenerationActive(signal);
     if (!['swipe', 'regenerate'].includes(type)) return { ok: true, changed: false };
     const chat = getChatArray(context()), index = chat.length - 1, message = chat[index];
-    const guard = () => {
+    const guard = (phase = null) => {
       assertGenerationActive(signal);
       if (!expectedBinding || publicationFields.some(field => !expectedBinding[field] || getCurrentBinding()?.[field] !== expectedBinding[field])
-        || getChatArray(context()) !== chat || typeof assertCurrent !== 'function' || assertCurrent() !== true) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
+        || getChatArray(context()) !== chat || typeof assertCurrent !== 'function' || assertCurrent({ phase }) !== true) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
       assertGenerationActive(signal);
       if (getChatArray(context()) !== chat || publicationFields.some(field => getCurrentBinding()?.[field] !== expectedBinding[field])) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
     };
     guard();
+    // Native Regenerate removes its final assistant after GENERATION_STARTED.
+    // Restore only that gesture's exact sampled row and unchanged prefix so a
+    // new reviewed swipe can retain the previous response and its receipts.
+    if (type === 'regenerate' && regenerateSource && regenerateSource.rows?.length === chat.length + 1) {
+      const rows = regenerateSource.rows, removed = rows.at(-1), restoredIndex = chat.length;
+      const add = context()?.addOneMessage || globalThis.addOneMessage;
+      if (canonicalJson(rows.slice(0, -1)) !== canonicalJson(chat)
+        || !removed || removed.is_user || removed.is_system || ['user', 'system'].includes(removed.role)
+        || normalizeMessageId(removed, restoredIndex) !== regenerateSource.hostMessageId
+        || !captureV1AssistantSourceVariant({ ...removed, hostMessageId: regenerateSource.hostMessageId }).ok
+        || typeof add !== 'function') throw publicationError('DIRECTIVE_CHARACTER_SWIPE_RESERVATION_INVALID');
+      const restored = cloneJson(removed);
+      guard();
+      chat.push(restored);
+      guard('restored');
+      return (async () => {
+        await add.call(context(), restored, { scroll: true });
+        guard();
+        if (canonicalJson(chat) !== canonicalJson(rows)) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
+        return { ok: true, changed: true, restored: true, hostMessageId: regenerateSource.hostMessageId, swipeIndex: restored.swipe_id };
+      })();
+    }
     if (!message || message.is_user || message.is_system || ['user', 'system'].includes(message.role)) throw publicationError('DIRECTIVE_CHARACTER_SWIPE_RESERVATION_INVALID');
     if (captureV1AssistantSourceVariant({ ...message, hostMessageId: normalizeMessageId(message, index) }).ok) return { ok: true, changed: false };
     if (!Array.isArray(message.swipes) || !message.swipes.length || message.swipe_id !== message.swipes.length

@@ -136,3 +136,37 @@ reservedRow.swipe_id = reservedRow.swipes.length;
 assert.throws(() => reserved.adapter.prepareProtectedGeneration({ type: 'swipe', expectedBinding: binding, assertCurrent: () => false }), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_STALE' });
 assert.equal(reservedRow.swipe_id, reservedRow.swipes.length);
 console.log('PASS native reserved swipe recovery preserves all prior text and receipt metadata');
+
+const nativeRegenerate = rig();
+await nativeRegenerate.adapter.publishProtectedScene(request('publication.native-regenerate-original'));
+const regenerateRows = structuredClone(nativeRegenerate.context.chat);
+const regenerateSource = { rows: regenerateRows, hostMessageId: '0' };
+nativeRegenerate.context.chat.pop(); // Native Generate removes this row before interception.
+let restoredDisplays = 0, restoredSourceAcknowledged = false;
+nativeRegenerate.context.addOneMessage = async () => { assert.equal(restoredSourceAcknowledged, true, 'source ownership advances before native display can yield'); restoredDisplays++; };
+const restored = await nativeRegenerate.adapter.prepareProtectedGeneration({ type: 'regenerate', expectedBinding: binding,
+  assertCurrent: ({ phase }) => { if (phase === 'restored') restoredSourceAcknowledged = true; return true; }, regenerateSource });
+assert.equal(restored.restored, true);
+assert.deepEqual(nativeRegenerate.context.chat, regenerateRows, 'native regeneration restores only its owned removed row including all prior receipts');
+assert.equal(restoredDisplays, 1, 'restore the removed native message display before generation');
+await nativeRegenerate.adapter.publishProtectedScene(request('publication.native-regenerate-new', { hostMessageId: '0' }));
+assert.equal(nativeRegenerate.context.chat[0].swipes.length, 2);
+assert.deepEqual(nativeRegenerate.context.chat[0].swipe_info[0], regenerateRows[0].swipe_info[0]);
+console.log('PASS native Regenerate exact removed-row restoration and preserved swipe provenance');for (const change of ['prefix', 'source-id', 'binding', 'canceled', 'owner']) {
+  const rejected = rig();
+  rejected.context.chat.push({ is_user: true, mes: 'Original player source.' });
+  await rejected.adapter.publishProtectedScene(request(`publication.regenerate-${change}`));
+  const rows = structuredClone(rejected.context.chat);
+  rejected.context.chat.pop();
+  const source = { rows, hostMessageId: '1' };
+  const signal = new AbortController();
+  if (change === 'prefix') rejected.context.chat[0].mes = 'Edited player source.';
+  if (change === 'source-id') source.hostMessageId = '0';
+  if (change === 'binding') rejected.context.chatId = 'different.chat';
+  if (change === 'canceled') signal.abort();
+  const before = structuredClone(rejected.context.chat);
+  assert.throws(() => rejected.adapter.prepareProtectedGeneration({ type: 'regenerate', expectedBinding: binding,
+    regenerateSource: source, signal: signal.signal, assertCurrent: () => change !== 'owner' }));
+  assert.deepEqual(rejected.context.chat, before, `${change} cannot restore an old assistant over a changed source`);
+}
+console.log('PASS native Regenerate rejects changed prefix, source identity, binding, Stop and owner');

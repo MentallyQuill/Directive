@@ -165,7 +165,35 @@ assert.equal(sceneOnlySources.at(-1), continuedSource.text, 'Continue analyzes t
 console.log('PASS native Continue extends the selected response with source-bound scene analysis');
 
 const beforeRegenerate = host.chat.messages();
+app.handleHostGenerationStarted({ type: 'regenerate' });
+host.chat.setMessagesForChat(host.chat.getCurrentChatId(), beforeRegenerate.slice(0, -1));
+await app.handleHostMessageDeleted({ hostMessageId: beforeRegenerate.at(-1).id });
+let stopAfterRestoration = true;
+host.chat.prepareProtectedGeneration = async options => {
+  assert.deepEqual(options.regenerateSource?.rows, beforeRegenerate, 'retain the generation-start source before native deletion rewrites the lane baseline');
+  assert.equal(options.regenerateSource.hostMessageId, beforeRegenerate.at(-1).id);
+  assert.equal(options.assertCurrent(), true);
+  host.chat.setMessagesForChat(host.chat.getCurrentChatId(), options.regenerateSource.rows);
+  assert.equal(options.assertCurrent({ phase: 'restored' }), true);
+  if (stopAfterRestoration) {
+    stopAfterRestoration = false;
+    await app.handleHostGenerationStopped();
+    throw Object.assign(new Error('Stopped while displaying the restored source'), { code: 'DIRECTIVE_GENERATION_ABORTED' });
+  }
+  return { ok: true, restored: true };
+};
+const callsBeforeRestorationStop = protectedCalls;
+const restorationStopped = await orchestrator.interceptGeneration({ type: 'regenerate' });
+assert.equal(restorationStopped.responseStrategy, 'cancelStaleTurn');
+assert.equal(protectedCalls, callsBeforeRestorationStop);
+assert.deepEqual(host.chat.messages(), beforeRegenerate);
+host.chat.getGenerationActivity = () => ({ status: 'active', replyStatus: 'active' });
+app.handleHostGenerationStarted({ type: 'regenerate' });
+host.chat.setMessagesForChat(host.chat.getCurrentChatId(), beforeRegenerate.slice(0, -1));
+await app.handleHostMessageDeleted({ hostMessageId: beforeRegenerate.at(-1).id });
 const regenerated = await orchestrator.interceptGeneration({ type: 'regenerate' });
+host.chat.getGenerationActivity = originalGenerationActivity;
+delete host.chat.prepareProtectedGeneration;
 assert.equal(regenerated.responseStrategy, 'protectedScenePublished', JSON.stringify(regenerated));
 assert.equal(host.chat.messages().length, beforeRegenerate.length);
 const afterRegenerate = host.chat.messages().at(-1);
