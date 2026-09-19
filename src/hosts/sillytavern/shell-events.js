@@ -109,8 +109,11 @@ function scheduleReconciliation(label, task) {
 function register(adapter, names, handler, disposers) {
   const seen = new Set();
   for (const name of names.filter(Boolean)) {
-    if (seen.has(name)) continue;
-    seen.add(name);
+    // Deduplicate aliases within this lifecycle registration, after resolving
+    // native names; keep independent adapter subscription ownership unchanged.
+    const resolvedName = adapter.resolveEventName(name);
+    if (seen.has(resolvedName)) continue;
+    seen.add(resolvedName);
     disposers.push(adapter.on(name, handler));
   }
 }

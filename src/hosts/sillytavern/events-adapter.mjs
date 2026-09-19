@@ -86,6 +86,7 @@ export function createSillyTavernEventAdapter({ context } = {}) {
 
   return {
     on,
+    resolveEventName: eventName => resolveEventName(context, eventName),
     disposeAll,
     listenerCount: () => subscriptions.size,
     aliases: SILLYTAVERN_EVENT_ALIASES

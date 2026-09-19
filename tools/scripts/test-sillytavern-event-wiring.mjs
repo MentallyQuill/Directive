@@ -23,6 +23,33 @@ import { installFakeDom } from './helpers/fake-dom.mjs';
 import { __directiveRuntimeActionTestHooks, registerRuntimeAction } from '../../src/runtime/runtime-actions.js';
 
 const eventSource = createFakeEventAdapter();
+// Native's emitter stores registrations in arrays, so the same callback can be
+// invoked twice when a concrete event and symbolic fallback resolve identically.
+const nativeListeners = new Map();
+const nativeDeleteSource = {
+  on(name, handler) { const handlers = nativeListeners.get(name) || []; handlers.push(handler); nativeListeners.set(name, handlers); },
+  off(name, handler) { nativeListeners.set(name, (nativeListeners.get(name) || []).filter(item => item !== handler)); },
+  async emit(name, payload) { for (const handler of nativeListeners.get(name) || []) await handler(payload); },
+};
+let nativeDeleteCalls = 0;
+setSillyTavernDirectiveRuntimeBridge({app:{async handleHostMessageDeleted(payload) {
+  assert.equal(payload, 33);
+  nativeDeleteCalls++;
+}}});
+wireEvents({eventSource:nativeDeleteSource,eventTypes:{MESSAGE_DELETED:'message_deleted'}});
+await nativeDeleteSource.emit('message_deleted', 33);
+assert.equal(nativeDeleteCalls, 1, 'native numeric deletion invokes runtime once despite symbolic fallback alias');
+disposeSillyTavernDirectiveEventLifecycle();
+assert.equal(nativeListeners.get('message_deleted').length, 0);
+await nativeDeleteSource.emit('message_deleted', 33);
+assert.equal(nativeDeleteCalls, 1, 'disposed lifecycle receives no deletion');
+wireEvents({eventSource:nativeDeleteSource,eventTypes:{MESSAGE_DELETED:'message_deleted'}});
+wireEvents({eventSource:nativeDeleteSource,eventTypes:{MESSAGE_DELETED:'message_deleted'}});
+await nativeDeleteSource.emit('message_deleted', 33);
+assert.equal(nativeDeleteCalls, 2, 'rewiring replaces prior lifecycle and still receives exactly one callback');
+disposeSillyTavernDirectiveEventLifecycle();
+assert.equal(nativeListeners.get('message_deleted').length, 0);
+clearSillyTavernDirectiveRuntimeBridge();
 const eventTypes = {
   CHAT_CHANGED: 'chat',
   MESSAGE_SENT: 'sent',
