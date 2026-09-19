@@ -2081,6 +2081,39 @@ export function createSillyTavernChatAdapter({
     if (found.length > 1) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_CONFLICT', publicationId);
     return found[0] || null;
   }
+  function prepareProtectedGeneration({ type, expectedBinding, assertCurrent, signal } = {}) {
+    assertGenerationActive(signal);
+    if (!['swipe', 'regenerate'].includes(type)) return { ok: true, changed: false };
+    const chat = getChatArray(context()), index = chat.length - 1, message = chat[index];
+    const guard = () => {
+      assertGenerationActive(signal);
+      if (!expectedBinding || publicationFields.some(field => !expectedBinding[field] || getCurrentBinding()?.[field] !== expectedBinding[field])
+        || getChatArray(context()) !== chat || typeof assertCurrent !== 'function' || assertCurrent() !== true) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
+      assertGenerationActive(signal);
+      if (getChatArray(context()) !== chat || publicationFields.some(field => getCurrentBinding()?.[field] !== expectedBinding[field])) throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_STALE');
+    };
+    guard();
+    if (!message || message.is_user || message.is_system || ['user', 'system'].includes(message.role)) throw publicationError('DIRECTIVE_CHARACTER_SWIPE_RESERVATION_INVALID');
+    if (captureV1AssistantSourceVariant({ ...message, hostMessageId: normalizeMessageId(message, index) }).ok) return { ok: true, changed: false };
+    if (!Array.isArray(message.swipes) || !message.swipes.length || message.swipe_id !== message.swipes.length
+      || typeof message.mes !== 'string' || !message.mes.trim()) throw publicationError('DIRECTIVE_CHARACTER_SWIPE_RESERVATION_INVALID');
+    const matches = message.swipes.flatMap((text, swipeIndex) => text === message.mes ? [swipeIndex] : []);
+    const root = message.extra?.runtimeMetadata?.characterScenePublication;
+    const recordedIndex = Number(root?.source?.selectedSwipeId);
+    let selected = null;
+    if (root && Number.isSafeInteger(recordedIndex) && matches.includes(recordedIndex)) {
+      const read = readCharacterScenePublication({ ...message, hostMessageId: normalizeMessageId(message, index), swipe_id: recordedIndex });
+      if (read.status === 'valid' && read.publicationId === root.publicationId) selected = recordedIndex;
+    }
+    if (selected === null && matches.length === 1) selected = matches[0];
+    if (selected === null) throw publicationError('DIRECTIVE_CHARACTER_SWIPE_RESERVATION_INVALID');
+    guard();
+    // Native Generate has only reserved an index. Never trim swipes, replace
+    // visible text, or overwrite the metadata belonging to earlier attempts.
+    message.swipe_id = selected;
+    return { ok: true, changed: true, hostMessageId: normalizeMessageId(message, index), swipeIndex: selected };
+  }
+
   function publishProtectedScene({ publicationId, text, expectedBinding, assertCurrent, createMetadata, hostMessageId = null, requireEmpty = false, signal, extra = {} } = {}) {
     const execute = async () => {
       assertGenerationActive(signal);
@@ -3092,6 +3125,7 @@ export function createSillyTavernChatAdapter({
     normalizeMessagePayload: (payload) => normalizeSillyTavernMessagePayload(context(), payload),
     postAssistantMessage,
     publishProtectedScene,
+    prepareProtectedGeneration,
     stripAssistantTimeFooter,
     attachAssistantRuntimeMetadata,
     appendAssistantMessageSwipe,

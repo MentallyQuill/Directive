@@ -13,6 +13,7 @@ const checks = [
   "test-character-runtime-snapshot.mjs",
   "test-protected-character-turn.mjs",
   "test-protected-character-runtime.mjs",
+  "test-protected-character-continuation.mjs",
   "test-character-scene-perception.mjs",
   "test-character-scene-review-evidence.mjs",
   "test-character-scene-narration.mjs",

@@ -50,6 +50,7 @@ import { createStateDeltaGateway } from './state-delta-gateway.mjs';
 import {
   V1_ACCEPTED_PAIR_SOURCE_WINDOW,
   captureV1AssistantSourceVariant,
+  captureV1StorySource,
   prepareV1AcceptedPairSnapshot,
 } from './v1-accepted-pair-source.mjs';
 import {
@@ -59,7 +60,8 @@ import {
 import {
   buildV1RuntimePlayerProjection,
   createNarrationGenerationTargetKey,
-  createV1MissionRuntime
+  createV1MissionRuntime,
+  captureAcceptedPairAnalysis
 } from './v1-mission-runtime.mjs';
 import { assertV1CampaignState } from './v1-campaign-state.mjs';
 import { createTimelineTransactionService } from './timeline-transaction-service.mjs';
@@ -73,7 +75,8 @@ import {
   reconcileRequiredRecovery,
 } from './accepted-pair-recovery-state.mjs';
 import { createStoryDirectionAnalyst } from '../story/story-director.mjs';
-import { createContinuityAnalyst } from '../story/continuity-analyst.mjs';
+import { createCharacterSceneAdmission } from '../story/character-scene-admission.mjs';
+import { createContinuityAnalyst, parseContinuityAnalystOutput } from '../story/continuity-analyst.mjs';
 import { selectDirectorReceipt } from '../story/story-settlement.mjs';
 import { createPeopleDossierAuthor } from '../people/people-dossier-author.mjs';
 import {
@@ -241,7 +244,10 @@ function assertAcceptedPairSourcePrecondition({ before, options, host }) {
       .filter(({ player }) => isUserMessage(player) && acceptedPairHostMessageId(player) === expectedPlayerId);
     if (!expectedPlayerId || playerMatches.length !== 1) return 'player-source-missing';
     const { player, index: playerIndex } = playerMatches[0];
-    if (activeRows.slice(playerIndex + 1).some((row) => !isUserMessage(row))) {
+    const trailingRows = activeRows.slice(playerIndex + 1);
+    if (precondition.replacementTail) {
+      if (trailingRows.some(isUserMessage) || stableJsonStringify(trailingRows) !== stableJsonStringify(precondition.replacementTail)) return 'replacement-source-changed';
+    } else if (trailingRows.some((row) => !isUserMessage(row))) {
       return 'player-source-not-current';
     }
     const prepared = prepareV1AcceptedPairSnapshot({
@@ -1743,6 +1749,14 @@ export function createDirectiveRuntimeApp({
       binding: clone(state?.campaignChatBinding),
       snapshot: clone(snapshot),
     };
+    if (characterKnowledgeSettings()?.mode === 'protected' && ['continue', 'swipe', 'regenerate'].includes(generationType)) {
+      const rows = host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false });
+      if (!Array.isArray(rows)) throw acceptedPairSourceStale('source-read-unavailable');
+      const active = rows.filter(activeSourceRow);
+      const index = active.findIndex(row => isUserMessage(row) && acceptedPairHostMessageId(row) === acceptedPairHostMessageId(snapshot?.source?.currentPlayer));
+      if (index < 0 || active.slice(index + 1).some(isUserMessage)) throw acceptedPairSourceStale('player-source-not-current');
+      acceptedPairSourcePrecondition.replacementTail = clone(active.slice(index + 1));
+    }
     const envelope = snapshot?.envelope || {};
     const currentEnvelope = {
       campaignId: state?.campaign?.id || null,
@@ -2124,11 +2138,11 @@ export function createDirectiveRuntimeApp({
     };
   }
 
-  async function publishProtectedGeneration({ preparedSnapshot, direction, generationType, generationTargetKey, transcriptOwner, progressScope }) {
+  async function publishProtectedGeneration({ preparedSnapshot, direction, generationType, generationTargetKey, transcriptOwner, progressScope, recoverPublished = false }) {
     const key = transcriptKey();
     const pending = pendingProtectedTurns.get(key);
     if (pending && pending.targetKey !== generationTargetKey) throw Object.assign(new Error('The prior protected publication must be recovered first.'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' });
-    if (!['normal', 'swipe', 'regenerate'].includes(generationType) || !preparedSnapshot || !direction?.mission?.directorReceipt?.characterScene) {
+    if (!['normal', 'swipe', 'regenerate', 'continue'].includes(generationType) || !preparedSnapshot || !direction?.mission?.directorReceipt?.characterScene) {
       throw Object.assign(new Error('Protected scene preparation is unavailable for this source.'), { code: 'DIRECTIVE_CHARACTER_SCENE_PREPARATION_UNAVAILABLE' });
     }
     if (typeof host.chat.publishProtectedScene !== 'function') throw Object.assign(new Error('Protected publication is unavailable.'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_UNAVAILABLE' });
@@ -2157,24 +2171,43 @@ export function createDirectiveRuntimeApp({
       const publicationId = `character-scene.${stableSha256Hex(`${key}:${Date.now()}:${Math.random()}`)}`;
       const guard = createCharacterPublicationGuard({ publicationId, identity, baselineRows: rows, readIdentity,
         readRows: () => { const current = host.chat.captureCurrentTranscriptSnapshot?.(); return current?.status === 'captured' ? current.snapshot.rows : null; } });
-      const sourcePair = Object.fromEntries(['previousAssistant', 'currentPlayer'].map(slot => {
+      let sourcePair = Object.fromEntries(['previousAssistant', 'currentPlayer'].map(slot => {
         const source = preparedSnapshot.source[slot];
         return [slot, { messageId: source.hostMessageId, selectedSwipeId: slot === 'previousAssistant' ? source.selectedVariantId ?? source.selectedVariant?.selectedVariantId ?? null : null,
           textHash: source.textHash, text: source.text }];
       }));
       const definition = (runtimeAssets?.missionDefinitions || []).map(entry => entry.definition || entry).find(entry => entry.id === state.mission?.v1?.definitionId);
-      const pacing = createProtectedNarrationPacing(definition ? createScenePacingContext({ definition, state: state.mission.v1, receipts: state.storySettlement?.acceptedPairReceipts || [] }) : {});
+      const pacing = createProtectedNarrationPacing(definition ? { definition, state: state.mission.v1, receipts: state.storySettlement?.acceptedPairReceipts || [] } : {});
       const target = generationType === 'normal' ? null : [...messages].reverse().find(message => activeSourceRow(message) && !isUserMessage(message) && !message.isSystem && !message.is_system);
       if (generationType !== 'normal' && !target) throw Object.assign(new Error('The selected response is unavailable.'), { code: 'DIRECTIVE_CHARACTER_SNAPSHOT_INVALID' });
+      let admission = direction.mission.directorReceipt.characterScene;
+      let continuation = null;
+      if (generationType === 'continue') {
+        const captured = captureV1StorySource(target);
+        if (!captured.ok) throw Object.assign(new Error('The selected continuation source is invalid.'), { code: 'DIRECTIVE_CHARACTER_SNAPSHOT_INVALID' });
+        const { role, ...previousAssistant } = captured.value;
+        sourcePair = { ...sourcePair, previousAssistant };
+        continuation = { source: { messageId: previousAssistant.messageId, selectedSwipeId: previousAssistant.selectedSwipeId, textHash: previousAssistant.textHash }, text: previousAssistant.text };
+        const analysis = captureAcceptedPairAnalysis({ campaignState: state, runtimeAssets, snapshot: preparedSnapshot, generationType, focused: true, characterKnowledge: characterKnowledgeSettings() });
+        const request = { ...analysis.directorRequest, pendingPair: sourcePair,
+          currentScene: { ...analysis.directorRequest.currentScene, sceneOnly: true } };
+        const result = await createContinuityAnalyst({ generationRouter })({ request, signal: progressScope.signal });
+        const parsed = result?.ok ? parseContinuityAnalystOutput(result.proposal, { request }) : null;
+        if (!parsed?.ok || parsed.value.coverage !== 'complete' || parsed.value.threadChanges.length || !guard.isCurrent()) throw Object.assign(new Error('Continuation scene preparation is unavailable.'), { code: 'DIRECTIVE_CHARACTER_SCENE_PREPARATION_UNAVAILABLE' });
+        admission = createCharacterSceneAdmission({ proposal: parsed.value.characterScene, sourcePair,
+          playerId: request.currentScene.playerId, knownPersonIds: new Set(request.authoredContext.references.filter(ref => ref.kind === 'person').map(ref => ref.id)), explicitAudience: new Map() });
+      }
       const turn = await prepareProtectedCharacterTurn({ generation: generationRouter, campaignState: state, crewDataset: runtimeAssets.crewDataset,
-        messages, sourcePair, admission: direction.mission.directorReceipt.characterScene, sourceContributionIds: direction.mission.directorReceipt.sourceContributionIds,
+        messages, sourcePair, admission, continuation, sourceContributionIds: direction.mission.directorReceipt.sourceContributionIds,
         identity, guard, publicationId, expectedBinding: clone(state.campaignChatBinding), hostMessageId: target ? messageId(target, target) : null,
         signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)), settings: narrationSettings(), pacing });
-      retained = { turn, ownership, targetKey: generationTargetKey, publicationBaseline: JSON.stringify(rows) };
+      retained = { turn, ownership, targetKey: generationTargetKey, publicationBaseline: JSON.stringify(rows), preparation: { preparedSnapshot, direction, generationType, generationTargetKey } };
       pendingProtectedTurns.set(key, retained);
     }
     try {
-      const publication = await enqueueStateMutation(() => retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner });
+      const publication = await enqueueStateMutation(() => recoverPublished
+        ? retained.turn.recoverPublished(options => host.chat.publishProtectedScene(options), { signal: AbortSignal.any([generationCancellation.signal, progressScope.signal].filter(Boolean)) })
+        : retained.turn.publish(options => host.chat.publishProtectedScene(options)), { transcriptOwner });
       pendingProtectedTurns.delete(key);
       transcriptOwner.baseline = retained.publicationBaseline;
       transcriptLane.producing(transcriptOwner);
@@ -2193,7 +2226,8 @@ export function createDirectiveRuntimeApp({
       return { publication, finalization, displayRefreshRequired: publication.displayUpdated === false, attempts: retained.turn.attempts };
     } catch (error) {
       if (error?.code !== 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING') {
-        retained.turn.dispose(); pendingProtectedTurns.delete(key);
+        retained.turn.dispose();
+        if (!retained.turn.hasPublished) pendingProtectedTurns.delete(key);
       }
       throw error;
     }
@@ -2234,6 +2268,16 @@ export function createDirectiveRuntimeApp({
         preparationClaimed = true;
       }
       await ensureInitialized();
+      const canceledPublicationOwner = transcriptLane.current(transcriptKey());
+      if (canceledPublicationOwner?.phase === 'failed' && !canceledPublicationOwner.running
+        && canceledPublicationOwner.preparationSettled === true && !finalizationFlights.has(transcriptKey())
+        && pendingProtectedTurns.get(transcriptKey())?.turn.hasPublished) {
+        // A drained write retains its exact reviewed row and will be revalidated
+        // under this fresh user gesture before any save or finalization.
+        transcriptLane.releaseUnchanged(canceledPublicationOwner);
+        failedFinalizations.delete(transcriptKey());
+        transcriptOwner = null;
+      }
       if (transcriptLane.current(transcriptKey())?.phase === 'failed') {
         if (finalizationFlights.has(transcriptKey())) throw transcriptNotReady('finalization-running');
         const prior = failedFinalizations.get(transcriptKey());
@@ -2266,6 +2310,24 @@ export function createDirectiveRuntimeApp({
       if (!state || !currentChatIsBound()) {
         await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
         return { handled: false, reason: 'inactive-or-unbound' };
+      }
+      if (characterKnowledgeSettings()?.mode === 'protected' && ['swipe', 'regenerate'].includes(generationType)
+        && typeof host.chat.prepareProtectedGeneration === 'function') {
+        await enqueueStateMutation(() => host.chat.prepareProtectedGeneration({ type: generationType,
+          expectedBinding: clone(state.campaignChatBinding), signal: generationCancellation.signal,
+          assertCurrent: () => { assertTurnActive(progressScope); transcriptLane.assertOwner(transcriptOwner, transcriptKey()); return currentChatIsBound(); },
+        }), { transcriptOwner });
+      }
+      const existingProtectedWrite = pendingProtectedTurns.get(transcriptKey());
+      if (existingProtectedWrite?.turn.hasPublished) {
+        try {
+          const result = await publishProtectedGeneration({ ...existingProtectedWrite.preparation, transcriptOwner, progressScope, recoverPublished: true });
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'protectedScenePublished', ...result };
+        } catch (error) {
+          if (error?.code === 'DIRECTIVE_GENERATION_ABORTED') throw error;
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',
+            settlementError: { code: error?.code || 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING', reasonCode: error?.code || 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING', blockedRoles: [], persistenceAttempts: 0 } };
+        }
       }
       assertAcceptedPairRecovery(acceptedPairRecovery);
       const recoveryBelongsToCurrentGesture = recoveryIntent === 'native'
@@ -3289,7 +3351,11 @@ export function createDirectiveRuntimeApp({
       // Start precedes the native user append. Capture that permitted single-row
       // change at Stop, then require exact stability before a fresh busy gesture.
       if (stoppedOwner) stoppedOwner.stoppedTranscript = unchangedTranscriptObservation(stoppedOwner);
-      rememberStoppedOutput(stoppedOwner);
+      const protectedWrite = pendingProtectedTurns.get(transcriptKey());
+      if (!protectedWrite?.turn.hasPublished) rememberStoppedOutput(stoppedOwner);
+      if (protectedWrite && !protectedWrite.turn.hasPublished) {
+        protectedWrite.turn.dispose(); pendingProtectedTurns.delete(transcriptKey());
+      }
       transcriptLane.cancel(transcriptKey());
       preparedNarrationDutyReport = null;
       activeHostGenerationGesture = null;

@@ -7,7 +7,8 @@ import { readCharacterScenePublication } from '../story/character-scene-publicat
  */
 export function createCharacterPublicationGuard({ publicationId, identity, baselineRows, readIdentity, readRows } = {}) {
   if (!publicationId || !Array.isArray(baselineRows) || typeof readIdentity !== 'function' || typeof readRows !== 'function') throw new TypeError('character-publication-guard-invalid');
-  const expectedIdentity = canonicalJson(identity);
+  let boundIdentity = structuredClone(identity);
+  let expectedIdentity = canonicalJson(boundIdentity);
   let expectedRows = canonicalJson(baselineRows), mutationArmed = false, mutated = false;
   function identityCurrent() {
     const value = readIdentity();
@@ -46,5 +47,16 @@ export function createCharacterPublicationGuard({ publicationId, identity, basel
       return phase === 'reconcile';
     } catch { return false; }
   }
-  return { isCurrent, assertPublication };
+  function reauthorizePublished() {
+    try {
+      if (!mutated) return false;
+      const next = readIdentity(), rows = liveRows();
+      if (!rows || next?.then || !Number.isSafeInteger(next?.epoch) || next.epoch < boundIdentity.epoch
+        || canonicalJson(rows) !== expectedRows
+        || canonicalJson({ ...next, epoch: boundIdentity.epoch }) !== expectedIdentity) return false;
+      boundIdentity = structuredClone(next); expectedIdentity = canonicalJson(boundIdentity);
+      return true;
+    } catch { return false; }
+  }
+  return { isCurrent, assertPublication, reauthorizePublished, get hasPublished() { return mutated; } };
 }

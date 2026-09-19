@@ -1,6 +1,6 @@
 import { createCharacterReviewInput } from './character-knowledge-reviewer.mjs';
 import { parseCharacterContributionRecord, parseCharacterKnowledgeReview, parseCharacterSceneReceipt, parseCharacterNarrationSegments } from './character-knowledge-contracts.mjs';
-import { characterNarrativeDigest } from '../narration/character-scene-narrator.mjs';
+import { characterNarrativeDigest, parseCharacterContinuation } from '../narration/character-scene-narrator.mjs';
 import { captureV1AssistantSourceVariant } from '../runtime/v1-accepted-pair-source.mjs';
 import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
@@ -22,9 +22,11 @@ function packetDigestGroups(packets) {
   return new Map([...groups].map(([personId, entries]) => [personId, digest(entries.sort((a, b) => a.contributionId.localeCompare(b.contributionId)))]));
 }
 
-export function createCharacterScenePublicationMetadata({ approved, scenePacket, pacing = null, publicationId, source } = {}) {
+export function createCharacterScenePublicationMetadata({ approved, scenePacket, pacing = null, continuation = null, publicationId, source } = {}) {
   const { draft, candidate } = approved || {};
-  const { context } = createCharacterReviewInput({ candidate, draft, scenePacket, pacing });
+  continuation = parseCharacterContinuation(continuation, draft?.sceneEvidence?.sourcePair);
+  if (continuation && (continuation.source.messageId !== source?.messageId || Number(continuation.source.selectedSwipeId) >= Number(source?.selectedSwipeId))) invalid();
+  const { context } = createCharacterReviewInput({ candidate, draft, scenePacket, pacing, continuation });
   const review = parseCharacterKnowledgeReview(approved.review, context);
   if (review.verdict !== 'pass' || typeof source?.selectedSwipeId !== 'string' || !/^(0|[1-9][0-9]*)$/.test(source.selectedSwipeId)) invalid();
   const expectedTextSource = sourceFromMessage({ id: source.messageId, mes: candidate.text, swipes: [candidate.text], swipe_id: 0, is_user: false });
@@ -44,7 +46,7 @@ export function createCharacterScenePublicationMetadata({ approved, scenePacket,
     audienceIds: new Set(draft.contributions.flatMap(item => item.recipientIds)), passageIds: new Set(),
     contributions: new Map(draft.contributions.map(item => [item.id, item])), exposureIds: new Set(exposures.map(item => item.exposure.id)) };
   parseCharacterSceneReceipt(receipt, { source, flightDigest: draft.flightDigest, reviewContext: context, exposureContext, packetDigests, contributionDigests });
-  return { kind: 'directive.characterScenePublication.v1', publicationId, source: structuredClone(source), receipt,
+  return { kind: 'directive.characterScenePublication.v1', publicationId, source: structuredClone(source), receipt, ...(continuation ? { continuation } : {}),
     segments: structuredClone(candidate.segments), contributions: structuredClone(draft.contributions) };
 }
 
@@ -59,7 +61,7 @@ export function readCharacterScenePublication(message) {
   try {
     if (raw.is_user === true || raw.is_system === true || ['user', 'system'].includes(raw.role) || message?.isUser === true || message?.isSystem === true) invalid();
     const keys = ['kind', 'publicationId', 'source', 'receipt', 'segments', 'contributions'];
-    if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).some(key => !keys.includes(key)) || keys.some(key => !Object.hasOwn(metadata, key))
+    if (!metadata || typeof metadata !== 'object' || Object.keys(metadata).some(key => ![...keys, 'continuation'].includes(key)) || keys.some(key => !Object.hasOwn(metadata, key))
       || metadata.kind !== 'directive.characterScenePublication.v1' || JSON.stringify(metadata).length > 128000
       || !Array.isArray(metadata.contributions) || metadata.contributions.length > 16) invalid();
     const source = sourceFromMessage(message);
@@ -67,7 +69,16 @@ export function readCharacterScenePublication(message) {
     const contributions = metadata.contributions.map(parseCharacterContributionRecord);
     const segments = parseCharacterNarrationSegments(metadata.segments, { contributions });
     const byId = new Map(contributions.map(item => [item.id, item]));
-    const text = segments.map(item => item.kind === 'character' ? byId.get(item.id).text : item.text).join('\n\n');
+    const continuation = parseCharacterContinuation(metadata.continuation ?? null);
+    if (continuation) {
+      const priorIndex = Number(continuation.source.selectedSwipeId);
+      if (continuation.source.messageId !== source.messageId || priorIndex >= index || !Array.isArray(raw.swipes) || typeof raw.swipes[priorIndex] !== 'string') invalid();
+      const prior = { ...raw, hostMessageId: source.messageId, mes: raw.swipes[priorIndex], text: raw.swipes[priorIndex], swipe_id: priorIndex };
+      const captured = captureV1AssistantSourceVariant(prior);
+      if (!captured.ok || captured.value.text !== continuation.text || canonicalJson(sourceFromMessage(prior)) !== canonicalJson(continuation.source)) invalid();
+    }
+    const extension = segments.map(item => item.kind === 'character' ? byId.get(item.id).text : item.text).join('\n\n');
+    const text = continuation ? `${continuation.text}\n\n${extension}` : extension;
     if (text !== raw.mes || text.length > 24000 || characterNarrativeDigest({ segments, text }) !== metadata.receipt.candidateDigest) invalid();
     const receipt = metadata.receipt;
     const contributionDigests = new Map(contributions.map(item => [item.id, digest(item)]));
