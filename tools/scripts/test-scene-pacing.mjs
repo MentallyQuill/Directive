@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import * as pacing from '../../src/narration/scene-pacing.mjs';
+import fs from 'node:fs';
+import { createMissionState } from '../../src/mission/v1/mission-state.mjs';
+import { reduceMissionEvidence } from '../../src/mission/v1/mission-reducer.mjs';
+import { createMissionAcceptedPairInterpretationPrompt } from '../../src/mission/v1/accepted-pair-interpreter.mjs';
 
 assert.equal(typeof pacing.settleScenePacing, 'function', 'scene pacing must settle participation using the existing accepted pair');
 const definition = { id: 'mission.test', objectives: [{ id: 'objective.test', playerText: {title:'Negotiate terms'}, scenePacing: {requirements: ['Discuss the proposed terms.', 'Choose how to proceed.']} }] };
@@ -94,3 +98,58 @@ assert.deepEqual(pacing.pacingObservationErrors(extendedObservation, { objective
 assert.ok(pacing.pacingObservationErrors(extendedObservation, { objectives: definition.objectives, sourcePair: extendedPair, limits: { scenePacingTextCharacters: 100, scenePacingQuoteCharacters: 100 } }).length);
 const extendedReceipt = pacing.settleScenePacing({ definition, state, receipts: [], observation: extendedObservation, sourcePair: extendedPair, assistantAccepted: true });
 assert.equal(extendedReceipt.unresolved.length, 400);
+
+// Source excerpts from the 2026-09-19 live handover. Observations below are
+// explicit fixtures: this verifies the runtime contract, not model classification.
+const ashes = JSON.parse(fs.readFileSync('packages/bundled/breckenridge/v1/prelude-a-ship-underway.mission-v1.json','utf8'));
+const handover = 'objective.prelude.command-handover';
+let handoverState = createMissionState({definition:ashes,branchId:'pacing-live-regression'});
+handoverState.events.push('event.prelude.command-handover-terms-settled');
+const discussionPair = {
+    previousAssistant:{text:"What I want to know is where you'd draw the line — what you'd bring to me versus what you'd handle on your own."},
+    currentPlayer:{messageId:'6',text:"I'd handle anything where the authority is clearly mine and the consequences stay within the ship's normal operating envelope"},
+};
+const discussion = pacing.settleScenePacing({definition:ashes,state:handoverState,sourcePair:discussionPair,assistantAccepted:true,
+    observation:{objectiveId:handover,intent:'continue',intentQuote:'',unresolved:'Discuss the practical transfer.',
+        participation:[{requirement:0,playerQuote:discussionPair.currentPlayer.text,assistantQuote:discussionPair.previousAssistant.text}]}});
+const history = [{currentPlayer:discussionPair.currentPlayer,assistantAcceptance:'accepted',scenePacing:discussion}];
+const resolutionPair = {
+    previousAssistant:{text:"What you do with it is yours to determine — but I'd rather you walked into those department conversations knowing what I already know"},
+    currentPlayer:{messageId:'10',text:'For the handover, should I assume I own the daily readiness brief, watch and rotation changes, and department priority calls immediately?'},
+};
+const resolving = pacing.settleScenePacing({definition:ashes,state:handoverState,receipts:history,sourcePair:resolutionPair,assistantAccepted:true,
+    observation:{objectiveId:handover,intent:'resolve',intentQuote:resolutionPair.currentPlayer.text,unresolved:'',
+        participation:[{requirement:1,playerQuote:resolutionPair.currentPlayer.text,assistantQuote:resolutionPair.previousAssistant.text}]}});
+assert.equal(resolving.ready,true,'a concrete transfer request can authorize the next answer after discussion');
+for (const alternative of [
+    {intent:'continue',intentQuote:'',unresolved:'The player requested general background information.'},
+    {intent:'resolve',intentQuote:resolutionPair.currentPlayer.text,unresolved:'The captain and XO still disagree about escalation authority.'},
+]) {
+    const held = pacing.settleScenePacing({definition:ashes,state:handoverState,receipts:history,sourcePair:resolutionPair,assistantAccepted:true,
+        observation:{objectiveId:handover,...alternative,participation:[{requirement:1,playerQuote:resolutionPair.currentPlayer.text,assistantQuote:resolutionPair.previousAssistant.text}]}});
+    assert.equal(held.ready,false,'general information or a material current-objective objection keeps resolution held');
+}
+const completion = {claimId:'captured-handover',evidenceKey:'captured-handover',claimType:'eventOccurred',
+    targetId:'event.prelude.command-handover-completed',sourceRef:{role:'assistant'},
+    evidenceQuote:'You own them as of this conversation.'};
+const premature = pacing.gateScenePacingClaims({definition:ashes,state:handoverState,receipts:history,claims:[completion]});
+assert.equal(premature.acceptedClaims.length,0,'current resolution cannot retroactively authorize a prior narrator outcome');
+assert.notEqual(reduceMissionEvidence({definition:ashes,state:handoverState,acceptedClaims:premature.acceptedClaims}).state.objectives[handover].state,'terminal');
+history.push({currentPlayer:resolutionPair.currentPlayer,assistantAcceptance:'accepted',scenePacing:resolving});
+const authorized = pacing.gateScenePacingClaims({definition:ashes,state:handoverState,receipts:history,claims:[completion]});
+handoverState = reduceMissionEvidence({definition:ashes,state:handoverState,acceptedClaims:authorized.acceptedClaims}).state;
+assert.equal(handoverState.objectives[handover].disposition,'completed');
+assert.equal(pacing.createScenePacingContext({definition:ashes,state:handoverState,receipts:history}).currentScene.objectiveId,'objective.prelude.staff-readiness');
+const departurePair = {previousAssistant:{text:'Anything else you need from me before you begin?'},
+    currentPlayer:{messageId:'12',text:'Nothing else, Captain. I have enough to begin. Elena closed her folder and rose. Could you let Lieutenant Nayar know Commander Venn is looking for her?'}};
+const leaving = pacing.settleScenePacing({definition:ashes,state:handoverState,receipts:history,sourcePair:departurePair,assistantAccepted:true,
+    observation:{objectiveId:handover,intent:'leave',intentQuote:'Elena closed her folder and rose.',unresolved:'',participation:[]}});
+assert.equal(leaving.intent,'leave','an upcoming meeting does not erase explicit departure from the handover');
+assert.equal(leaving.ready,false,'departure alone is not resolution');
+assert.equal(leaving.departMission,false,'leaving the captain does not leave the mission');
+const prompt = createMissionAcceptedPairInterpretationPrompt({sourcePair:resolutionPair,
+    candidatePacket:{candidates:[],scenePacing:pacing.createScenePacingContext({definition:ashes,state:handoverState,receipts:history})}});
+assert.match(prompt.systemPrompt,/Scope unresolved to material questions or objections about the selected objective/);
+assert.match(prompt.systemPrompt,/a player request to enact or confirm the concrete final decision or authority transfer may be resolve/);
+assert.match(prompt.systemPrompt,/leaving alone never proves objective completion/);
+console.log('Captured handover resolution, prior-only completion, and departure contract passed (model behavior not asserted).');
