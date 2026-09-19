@@ -1,0 +1,90 @@
+[
+  {
+    "id": "bronn-private", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.private","text":"The deadline is three minutes.","recipientIds":["person.sato"],"acquisition":"heard","claimType":"character-claim"}],
+    "expectedInformationTexts": [], "forbiddenInformationTexts": ["The deadline is three minutes."],
+    "expectedBehavior": "Bronn can ask for timing; he cannot repeat or act on the private exact deadline."
+  },
+  {
+    "id": "bronn-disclosed", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.disclosed","text":"The deadline is three minutes.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"}],
+    "expectedInformationTexts": ["The deadline is three minutes."], "forbiddenInformationTexts": [],
+    "expectedBehavior": "After explicit disclosure Bronn can use the exact timing without unnecessary refusal."
+  },
+  {
+    "id": "nayar-private", "personId": "person.nayar", "authoredCompetence": [],
+    "records": [{"id":"fact.plan","text":"Vickers will use the maintenance hatch.","recipientIds":["person.vickers"],"acquisition":"read","claimType":"character-claim"}],
+    "expectedInformationTexts": [], "forbiddenInformationTexts": ["Vickers will use the maintenance hatch."],
+    "expectedBehavior": "Nayar cannot anticipate the private plan or invent an earlier briefing."
+  },
+  {
+    "id": "false-report", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.report","text":"Sato reports that the hatch is safe.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"}],
+    "expectedInformationTexts": ["Sato reports that the hatch is safe."], "forbiddenInformationTexts": [],
+    "expectedBehavior": "Bronn can rely on or doubt the report; hearing it does not establish that the hatch is safe."
+  },
+  {
+    "id": "accessible-correction", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [
+      {"id":"fact.old","text":"The deadline is three minutes.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"},
+      {"id":"fact.new","text":"The deadline has changed to five minutes.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"}
+    ],
+    "expectedInformationTexts": ["The deadline is three minutes.","The deadline has changed to five minutes."], "forbiddenInformationTexts": [],
+    "expectedBehavior": "Bronn retains the earlier report and can recognize the accessible correction."
+  },
+  {
+    "id": "withheld-correction", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [
+      {"id":"fact.old","text":"The deadline is three minutes.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"},
+      {"id":"fact.new","text":"The deadline has changed to five minutes.","recipientIds":["person.sato"],"acquisition":"heard","claimType":"character-claim"}
+    ],
+    "expectedInformationTexts": ["The deadline is three minutes."], "forbiddenInformationTexts": ["The deadline has changed to five minutes."],
+    "expectedBehavior": "A correction elsewhere does not silently update Bronn's information."
+  },
+  {
+    "id": "competence", "personId": "person.medic", "authoredCompetence": ["Basic first aid"],
+    "records": [], "expectedInformationTexts": [], "forbiddenInformationTexts": ["The captain has a secret diagnosis."],
+    "expectedBehavior": "The medic can apply authored first-aid competence without knowing private medical records."
+  },
+  {
+    "id": "inference", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.smoke","text":"Smoke is coming from the hatch.","recipientIds":["person.bronn"],"acquisition":"observed","claimType":"narrated-fact"}],
+    "expectedInformationTexts": ["Smoke is coming from the hatch."], "forbiddenInformationTexts": ["Sato sabotaged the cooling pump."],
+    "expectedBehavior": "Bronn may infer a possible fire, with uncertainty; he cannot identify an unseen saboteur."
+  },
+  {
+    "id": "private-thought", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [
+      {"id":"fact.thought","text":"I privately intend to leave the ship.","recipientIds":["person.player"],"acquisition":"observed","claimType":"player-commitment"},
+      {"id":"fact.speech","text":"Please check the engines.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"}
+    ],
+    "expectedInformationTexts": ["Please check the engines."], "forbiddenInformationTexts": ["I privately intend to leave the ship."],
+    "expectedBehavior": "Mixed player narration exposes the spoken instruction without exposing the private intention."
+  },
+  {
+    "id": "radio-only", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [
+      {"id":"fact.radio","text":"Sato requests assistance over the radio.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"},
+      {"id":"fact.visual","text":"A red envelope is behind Sato.","recipientIds":["person.sato"],"acquisition":"observed","claimType":"narrated-fact"}
+    ],
+    "expectedInformationTexts": ["Sato requests assistance over the radio."], "forbiddenInformationTexts": ["A red envelope is behind Sato."],
+    "expectedBehavior": "A radio transmission does not grant the listener remote visual perception."
+  },
+  {
+    "id": "whisper", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.whisper","text":"The captain whispers the code to Sato.","recipientIds":["person.sato"],"acquisition":"heard","claimType":"character-claim"}],
+    "expectedInformationTexts": [], "forbiddenInformationTexts": ["The captain whispers the code to Sato."],
+    "expectedBehavior": "Physical presence alone does not establish access to a whisper."
+  },
+  {
+    "id": "ordered-disclosure", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [{"id":"fact.delivery","text":"Sato tells Bronn that the hatch is sealed.","recipientIds":["person.bronn"],"acquisition":"heard","claimType":"character-claim"}],
+    "expectedInformationTexts": ["Sato tells Bronn that the hatch is sealed."], "forbiddenInformationTexts": [],
+    "expectedBehavior": "Bronn may react after this contribution, never before it or after its discarded swipe."
+  },
+  {
+    "id": "player-agency", "personId": "person.bronn", "authoredCompetence": [],
+    "records": [], "expectedInformationTexts": [], "forbiddenInformationTexts": [],
+    "expectedBehavior": "An NPC may ask the player a question; no role may supply the player's answer or decision."
+  }
+]
