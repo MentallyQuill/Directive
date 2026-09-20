@@ -29,18 +29,25 @@ function audienceProjection(explicitAudience = new Map()) {
     return [slot, [...ids].sort()];
   }));
 }
-function hasCompleteWordOccurrence(text, quote) {
+// Display projection only: custody retains the exact selected source excerpt.
+// Catalog windows may begin/end inside words. Never expand their authority.
+function completeWordProjection(text, quote) {
   const isWord = character => typeof character === 'string' && /[\p{L}\p{N}\p{M}_'’]/u.test(character);
   const characters = Array.from(quote);
+  let longest = '';
   for (let start = text.indexOf(quote); start !== -1; start = text.indexOf(quote, start + 1)) {
     const before = Array.from(text.slice(Math.max(0, start - 2), start)).at(-1);
     const end = start + quote.length;
     const after = Array.from(text.slice(end, end + 2))[0];
-    if (!(isWord(before) && isWord(characters[0])) && !(isWord(characters.at(-1)) && isWord(after))) return true;
+    let left = 0, right = characters.length;
+    if (isWord(before) && isWord(characters[0])) while (left < right && isWord(characters[left])) left++;
+    if (isWord(characters.at(-1)) && isWord(after)) while (right > left && isWord(characters[right - 1])) right--;
+    const candidate = characters.slice(left, right).join('').trim();
+    if (candidate.length > longest.length) longest = candidate;
   }
-  return false;
+  return longest;
 }
-function validateProposal(proposal, { playerId, people, sourcePair = null, explicitAudience = new Map(), completePlayerWords = false }) {
+function validateProposal(proposal, { playerId, people, sourcePair = null, explicitAudience = new Map() }) {
   fields(proposal, ['participants', 'reactions', 'playerContext']);
   array(proposal.participants, 3); array(proposal.reactions, 4); array(proposal.playerContext, 8, 1);
   const evidence = (item, recipientId = null) => {
@@ -103,12 +110,7 @@ function validateProposal(proposal, { playerId, people, sourcePair = null, expli
     if (!ready.length || round >= 2) invalid();
     ready.forEach(index => seen.add(index));
   }
-  proposal.playerContext.forEach((item, index) => {
-    evidence(item, playerId);
-    if (completePlayerWords && sourcePair && !hasCompleteWordOccurrence(sourcePair[item.sourceSlot].text, item.evidenceQuote)) {
-      invalid(`characterScene.playerContext[${index}]: select exact source passages containing complete words; use multiple bounded passages to retain the actionable request. Do not invent or expand context.`);
-    }
-  });
+  proposal.playerContext.forEach(item => evidence(item, playerId));
 }
 
 export const CHARACTER_SCENE_ANALYSIS_POLICY = [
@@ -119,7 +121,7 @@ export const CHARACTER_SCENE_ANALYSIS_POLICY = [
   'Every presence and audience edge needs exact source evidence. Remote participants need an established live channel. Do not treat a future plan, attempted connection, private thought, mention, unconscious person or departed person as a present reacting recipient. Explicit host audience restrictions take precedence.',
   'Choose only necessary reactions: at most three actors, four responses and two causal rounds. Respect smaller currentScene.limits ceilings; with one round, each actor can respond only once. reactions.after names zero-based reaction indices, never invented character IDs. Dependent recipients can react only after the proposed source character has contributed. Independent characters may run together. Do not write dialogue.',
   'Each participant perception contains only the source excerpts they can currently hear, observe or read. Include a spoken player request when audible to that person, but never private player thoughts, hidden narration or offscreen events. Preserve speech as a claim and attempted player actions as attempts. Presence alone does not grant access to the whole source.',
-  'Select playerContext passages that preserve the current player\'s actionable speech and request, using multiple bounded passages when needed. Never cut a word or supply only the opening fragment of an utterance. Keep all excerpts within player-accessible source evidence.',
+  'Select playerContext passages that preserve the current player\'s actionable speech and request, using multiple bounded passages when needed. Prefer supplied passages with complete words when available; select catalog IDs exactly even when their bounded text has an edge fragment. Do not rely only on the opening fragment of an utterance. Keep all excerpts within player-accessible source evidence.',
   'playerContext contains only source excerpts available to the player, including the player\'s own supplied actions and thoughts. Never select another character\'s private thoughts or an omniscient explanation as player context. Quote enough context to establish each claim. Short sources may be quoted in full.',
   'When currentScene.sceneOnly is true, update only characterScene. Return coverage complete, threadChanges [] and lookupRequests []; the exchange is already interpreted and no new facts may be extracted.',
   'characterScene is preparation evidence, not world truth or accepted knowledge. On lookup-needed return characterScene null. On complete return a fully supported scene even if no NPC needs to respond; ambiguity must remain absent, not fabricated.',
@@ -144,15 +146,15 @@ export function createCharacterSceneAdmissionSchema({ personIds = [], playerId =
   } };
 }
 
-function createAdmission({ proposal, sourcePair, playerId, knownPersonIds, explicitAudience = new Map() } = {}, completePlayerWords = false) {
+function createAdmission({ proposal, sourcePair, playerId, knownPersonIds, explicitAudience = new Map() } = {}) {
   if (!validId(playerId) || !(knownPersonIds instanceof Set) || [...knownPersonIds].some(id => !validId(id))) invalid();
   const sources = identities(sourcePair), hostAudience = audienceProjection(explicitAudience);
-  validateProposal(proposal, { playerId, people: new Set([...knownPersonIds, playerId]), sourcePair, explicitAudience, completePlayerWords });
+  validateProposal(proposal, { playerId, people: new Set([...knownPersonIds, playerId]), sourcePair, explicitAudience });
   return { kind: 'directive.characterSceneAdmission.v1', playerId, sources, hostAudience, proposal: structuredClone(proposal) };
 }
 
 export function createCharacterSceneAdmission(options = {}) {
-  return createAdmission(options, true);
+  return createAdmission(options);
 }
 
 export function validateCharacterSceneAdmissionRecord(record) {
@@ -181,7 +183,7 @@ export function materializeCharacterSceneAdmission(record, options = {}) {
     participants: record.proposal.participants.map(person => ({ personId: person.personId, present: person.presence === 'present', conscious: true,
       reactionPathValidated: person.presence === 'remote', audience: person.audience.map(({ personId, acquisition }) => ({ personId, acquisition })) })),
     plan: record.proposal.reactions.map((reaction, index) => ({ id: `${prefix}.${index}`, personId: reaction.personId, dependsOnIds: reaction.after.map(prior => `${prefix}.${prior}`) })),
-    playerInformation: [...new Map(record.proposal.playerContext.map(item => [`scene.${hash(item).slice(0, 24)}`, item.evidenceQuote])).entries()].map(([id, text]) => ({ id, text })),
+    playerInformation: [...new Map(record.proposal.playerContext.map(item => [`scene.${hash(item).slice(0, 24)}`, completeWordProjection(options.sourcePair[item.sourceSlot].text, item.evidenceQuote)])).entries()].filter(([, text]) => text).map(([id, text]) => ({ id, text })),
     perceptions: new Map(record.proposal.participants.map(person => [person.personId, person.perception.map(item => ({
       id: `perception.${hash({ personId: person.personId, sources: record.sources, item }).slice(0, 24)}`,
       text: item.evidence.evidenceQuote,

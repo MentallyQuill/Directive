@@ -41,9 +41,20 @@ const snapshot = {
   sourceIdentities: sources,
   characters: new Map([['person.bronn', { name: 'Bronn', role: 'officer', dossier: 'Private irrelevant material' }]]),
 };
+// The public statement and its audience proof must not grant an analyst's
+// summary containing a private detail from elsewhere in the same source.
+const contaminatedSnapshot = structuredClone(snapshot);
+const contaminatedFact = contaminatedSnapshot.state.storySettlement.continuityEvents.find(event => event.operation === 'addFact');
+contaminatedFact.payload.text = 'The public question makes no claim that the private 22:43 change took effect.';
+const sourceBound = knowledge.createCharacterKnowledgePacket({ snapshot: contaminatedSnapshot, personId: 'person.bronn' });
+assert.equal(sourceBound.ok, true);
+assert.equal(sourceBound.packet.information[0].text, contaminatedFact.sources[0].evidenceQuote);
+assert.ok(!JSON.stringify(sourceBound.packet).includes('22:43'));
+assert.ok(!JSON.stringify(sourceBound.packet).includes('What flexibility'), 'audience evidence is custody, not statement content');
+assert.equal(contaminatedFact.payload.text.includes('22:43'), true, 'projection leaves persisted state untouched');
 const compiled = knowledge.createCharacterKnowledgePacket({ snapshot, personId: 'person.bronn' });
 assert.equal(compiled.ok, true, JSON.stringify(compiled));
-assert.deepEqual(compiled.packet.information.map(item => item.text), ['The rendezvous is scheduled for 1400.']);
+assert.deepEqual(compiled.packet.information.map(item => item.text), ['Rendezvous 1400.']);
 assert.match(compiled.digest, /^[a-f0-9]{64}$/);
 assert.equal(JSON.stringify(compiled.packet).includes('Private irrelevant'), false);
 assert.deepEqual(snapshot.state.storySettlement.continuityEvents, events);
@@ -95,7 +106,7 @@ console.log('PASS provisional disclosure is visible only after its validated sou
 
 const sceneSnapshot = { ...snapshot, perceptionByPerson: new Map([['person.bronn', [oldFact.id]]]) };
 const scenePacket = knowledge.createCharacterKnowledgePacket({ snapshot: sceneSnapshot, personId: 'person.bronn' });
-assert.ok(scenePacket.packet.situation.includes('rendezvous is scheduled for 1400'));
+assert.ok(scenePacket.packet.situation.includes('Rendezvous 1400.'));
 assert.equal(knowledge.createCharacterKnowledgePacket({ snapshot: { ...snapshot, perceptionByPerson: new Map([['person.bronn', ['fact.private']]]) }, personId: 'person.bronn' }).ok, false);
 console.log('PASS scene context can only reference admitted records');
 
@@ -132,6 +143,7 @@ assert.equal(knowledge.createCharacterKnowledgePacket({ ...duringReply, sourcePa
 console.log('PASS provisional source IDs cannot alias a different accepted source');
 
 const longHistory = Array.from({ length: 40 }, (_, i) => ({ ...structuredClone(oldFact), id: `fact.long.${i}`, payload: { ...structuredClone(oldFact.payload), text: i === 0 ? 'The cooling system needs repair.' : `Unrelated report ${i}: ` + 'A routine engineering status report. '.repeat(10) } }));
+for (const item of longHistory) item.sources[0].evidenceQuote = item.payload.text.trim();
 const longSnapshot = { ...snapshot, state: { storySettlement: { ...snapshot.state.storySettlement, continuityEvents: [events[0], ...longHistory] } }, focusByPerson: new Map([['person.bronn', { requiredIds: ['fact.long.0'], queryIds: ['fact.long.0'] }]]) };
 const boundedHistory = knowledge.createCharacterKnowledgePacket({ snapshot: longSnapshot, personId: 'person.bronn' });
 assert.equal(boundedHistory.ok, true, 'optional history must fit the serialized budget');
@@ -141,7 +153,7 @@ assert.ok(JSON.stringify(boundedHistory.packet).length <= 12000);
 const allRequired = { ...longSnapshot, focusByPerson: new Map([['person.bronn', { requiredIds: longHistory.map(item => item.id) }]]) };
 assert.equal(knowledge.createCharacterKnowledgePacket({ snapshot: allRequired, personId: 'person.bronn' }).code, 'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET');
 const unicodeSnapshot = structuredClone(longSnapshot);
-for (const item of unicodeSnapshot.state.storySettlement.continuityEvents) if (item.operation === 'addFact' && item.id !== 'fact.long.0') item.payload.text = String.fromCodePoint(0x5de5, 0x7a0b).repeat(150);
+for (const item of unicodeSnapshot.state.storySettlement.continuityEvents) if (item.operation === 'addFact' && item.id !== 'fact.long.0') item.sources[0].evidenceQuote = String.fromCodePoint(0x5de5, 0x7a0b).repeat(150);
 const unicodePacket = knowledge.createCharacterKnowledgePacket({ snapshot: unicodeSnapshot, personId: 'person.bronn' });
 assert.equal(unicodePacket.ok, true);
 assert.ok(new TextEncoder().encode(JSON.stringify(unicodePacket.packet)).length <= 12000);
@@ -158,3 +170,31 @@ assert.ok(latePackets[1].information.some(item => item.text === longSpeech));
 assert.ok(latePackets[1].information.some(item => item.id === 'fact.long.0'));
 lateFlight.dispose();
 console.log('PASS budgeted archive retrieval retains required facts and causal context');
+
+const leakedProvisional = structuredClone(provisional);
+leakedProvisional.event.payload.text = 'Public question plus unseen private 22:43 update.';
+const projectedProvisional = knowledge.createCharacterKnowledgePacket({ ...duringReply, provisionalExposures: [leakedProvisional], beforeOrder: 3 });
+assert.equal(projectedProvisional.ok, true);
+const projectedFact = projectedProvisional.packet.information.find(item => item.id === leakedProvisional.event.id);
+assert.equal(projectedFact.text, leakedProvisional.event.sources[0].evidenceQuote);
+assert.equal(projectedFact.claimType, leakedProvisional.event.payload.claimType);
+assert.equal(projectedFact.acquisition, 'heard');
+assert.equal(projectedFact.status, 'current');
+assert.ok(!JSON.stringify(projectedProvisional.packet).includes('22:43'));
+const missingQuoteSnapshot = structuredClone(snapshot);
+delete missingQuoteSnapshot.state.storySettlement.continuityEvents.find(item => item.operation === 'addFact').sources[0].evidenceQuote;
+const missingQuote = knowledge.createCharacterKnowledgePacket({ snapshot: missingQuoteSnapshot, personId: 'person.bronn' });
+assert.equal(missingQuote.ok, true);
+assert.equal(missingQuote.packet.information.length, 0);
+const missingProvisional = structuredClone(provisional);
+delete missingProvisional.event.sources[0].evidenceQuote;
+const omittedProvisional = knowledge.createCharacterKnowledgePacket({ ...duringReply, provisionalExposures: [missingProvisional], beforeOrder: 3 });
+assert.equal(omittedProvisional.ok, true);
+assert.equal(omittedProvisional.packet.information.some(item => item.id === missingProvisional.event.id), false);
+// Legitimate corrections expose their actual statement and preserve old status.
+const actualCorrection = structuredClone(correctionSnapshot);
+actualCorrection.state.storySettlement.continuityEvents.at(-1).sources[0].evidenceQuote = 'The rendezvous has moved to 1500.';
+const correctedPacket = knowledge.createCharacterKnowledgePacket({ snapshot: actualCorrection, personId: 'person.bronn' });
+assert.equal(correctedPacket.ok, true);
+assert.deepEqual(correctedPacket.packet.information.map(item => [item.text, item.status]), [['Rendezvous 1400.', 'superseded'], ['The rendezvous has moved to 1500.', 'current']]);
+console.log('PASS persisted and provisional statement projection excludes summary spillover and missing evidence');

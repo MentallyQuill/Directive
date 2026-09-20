@@ -54,25 +54,51 @@ const analyst = createContinuityAnalyst({ generationRouter: { generate: async (_
 assert.equal((await analyst({ request })).ok, true);
 console.log('PASS bounded scene admission feedback and explicit player/audience contract');
 
-for (const [text, quote] of [
-  ['Lieutenant Nayar, Commander Vale requests the schedule.', 'Lieutenant Nayar, Comm'],
-  ["The duty captain's scheduling request is pending.", "The duty captain"],
-  ['Commander 𐐀𐐁 requests the schedule.', 'Commander 𐐀'],
+for (const [text, quote, expected] of [
+  ['Lieutenant Nayar, Commander Vale requests the schedule.', 'Lieutenant Nayar, Comm', 'Lieutenant Nayar,'],
+  ["The duty captain's scheduling request is pending.", 'The duty captain', 'The duty'],
+  ['Commander 𐐀𐐁 requests the schedule.', 'Commander 𐐀', 'Commander'],
+  ['He opened a private message to Lieutenant Nayar and typed.', 'ened a private message to Lieutenant Nayar', 'a private message to Lieutenant Nayar'],
+  ['Extraordinarily', 'traordinaril', null],
 ]) {
-  assert.throws(() => createCharacterSceneAdmission({ ...args,
-    sourcePair: { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text } },
-    proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: quote }] }
-  }), error => error.code === 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID' && /complete words/.test(error.feedback));
+  const options = { ...args, sourcePair: { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text } },
+    proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: quote }] } };
+  const selected = createCharacterSceneAdmission(options);
+  const before = JSON.stringify(selected);
+  const shown = materializeCharacterSceneAdmission(selected, options).playerInformation;
+  assert.deepEqual(shown.map(item => item.text), expected === null ? [] : [expected]);
+  if (expected !== null) assert.ok(quote.includes(expected), 'projection can only remove exact edge fragments');
+  assert.equal(JSON.stringify(selected), before, 'source evidence and record digest inputs remain untouched');
 }
 const repeatedText = 'Report on the sealed hatchway. Report on the sealed hatch is requested.';
-const repeated = createCharacterSceneAdmission({ ...args,
+const repeatedOptions = { ...args,
   sourcePair: { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text: repeatedText } },
   proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: 'Report on the sealed hatch' }] }
-});
-assert.equal(repeated.proposal.playerContext[0].evidenceQuote, 'Report on the sealed hatch', 'a later exact occurrence at word boundaries remains valid without whole-sentence expansion');
-console.log('PASS player scene rejects clipped words without broadening admitted context');
-
+};
+const repeated = createCharacterSceneAdmission(repeatedOptions);
+assert.equal(materializeCharacterSceneAdmission(repeated, repeatedOptions).playerInformation[0].text, 'Report on the sealed hatch');
 const historicalClipped = structuredClone(record);
 historicalClipped.proposal.playerContext[0].evidenceQuote = 'Report on the sealed hat';
 assert.equal(validateCharacterSceneAdmissionRecord(historicalClipped).ok, true);
-assert.equal(materializeCharacterSceneAdmission(historicalClipped, args).playerInformation[0].text, 'Report on the sealed hat', 'existing accepted scene records retain their exact evidence without applying new proposal quality rules retroactively');
+const historicalBefore = JSON.stringify(historicalClipped);
+const historicalShown = materializeCharacterSceneAdmission(historicalClipped, args);
+assert.equal(historicalShown.playerInformation[0].text, 'Report on the sealed');
+assert.equal(JSON.stringify(historicalClipped), historicalBefore);
+assert.deepEqual(historicalShown.reviewerEvidence, historicalClipped);
+assert.equal(historicalShown.playerInformation[0].id, materializeCharacterSceneAdmission(historicalClipped, args).playerInformation[0].id);
+assert.throws(() => createCharacterSceneAdmission({ ...args, proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: 'Invented context is never admitted.' }] } }), { code: 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID' });
+console.log('PASS player scene trims only partial edge words without rejecting or mutating exact source custody');const { createEvidencePassageCatalog, hydrateEvidenceReferences } = await import('../../src/story/evidence-passages.mjs');
+// Exact K05 player source: the system catalog, not the model, supplied "ened".
+const liveText = 'Jonah kept the combadge audio channel open while shifting his PADD so its screen faced away from Captain Whitaker. He opened a private message to Lieutenant Nayar and typed: **Provisional revised check-in: 22:43, observation lounge. Please text back the time and location you have recorded for me. Keep this off the shared calendar; do not relay it to Captain Whitaker yet.** He sent the message without reading the proposed time or location aloud. Then he returned his attention to the captain. "For continuity, Captain, what check-in time do you currently have from our conversation?" He kept the question limited to her existing understanding and waited, making no claim that the provisional change had taken effect.';
+const livePair = { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text: liveText } };
+const liveCatalog = createEvidencePassageCatalog({ sourcePair: livePair, requestId: 'k05.valid-window' });
+const livePassage = [...liveCatalog.values()].find(item => item.text.startsWith('ened a private message'));
+assert.ok(livePassage, 'production catalog itself supplies the partial-word window');
+const liveEvidence = hydrateEvidenceReferences({ value: { evidencePassageId: livePassage.id }, catalog: liveCatalog, sourcePair: livePair });
+const liveOptions = { ...args, sourcePair: livePair, proposal: { ...proposal, playerContext: [liveEvidence] } };
+const liveRecord = createCharacterSceneAdmission(liveOptions);
+const liveScene = materializeCharacterSceneAdmission(liveRecord, liveOptions);
+assert.equal(liveScene.playerInformation[0].text, livePassage.text.slice(5));
+assert.equal(liveRecord.proposal.playerContext[0].evidenceQuote, livePassage.text);
+assert.throws(() => hydrateEvidenceReferences({ value: { evidencePassageId: livePassage.id.slice(0, -1) }, catalog: liveCatalog, sourcePair: livePair }), { code: 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' });
+console.log('PASS exact K05 catalog window keeps original evidence and cannot rescue an invalid ID');

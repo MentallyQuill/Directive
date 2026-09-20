@@ -40,6 +40,10 @@ import { validateContinuityEvent, requireSourceQuote } from './continuity-contra
 import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 
+function hasStatementQuote(event) {
+  return typeof event?.sources?.[0]?.evidenceQuote === 'string' && event.sources[0].evidenceQuote.trim().length > 0;
+}
+
 function sameSource(left, right) {
   return left && right && left.messageId === right.messageId
     && left.selectedSwipeId === right.selectedSwipeId && left.textHash === right.textHash;
@@ -60,7 +64,9 @@ export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair 
         || (snapshot.focusByPerson !== undefined && !(snapshot.focusByPerson instanceof Map))
         || (snapshot.perceptionByPerson !== undefined && !(snapshot.perceptionByPerson instanceof Map))) fail('knowledge_snapshot_invalid');
     const invalidSources = new Set(snapshot.invalidSourceIds || []);
-    const events = settlement.continuityEvents;
+    // Missing statement evidence cannot be replaced by summary or audience proof.
+    // Omit such historical facts and their dependent closure from this projection.
+    const events = settlement.continuityEvents.filter(event => event?.operation !== 'addFact' || hasStatementQuote(event));
     for (const event of events) {
       if (!validateContinuityEvent(event, { branchId: settlement.branchId, maximumRevision: settlement.revision }).ok) fail('knowledge_archive_invalid');
       event.sourceContributionIds.forEach((id, index) => {
@@ -74,7 +80,9 @@ export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair 
     // A hidden correction cannot tell this character that an old report is outdated.
     const superseded = new Set(accessible.map(event => event.payload.supersedesFactId).filter(Boolean));
     const candidates = accessible.map(event => ({
-      id: event.id, text: event.payload.text, claimType: event.payload.claimType,
+      // The first source anchors the statement; later sources only establish
+      // audience custody. Analyst summaries may contain context unseen by recipients.
+      id: event.id, text: event.sources[0].evidenceQuote, claimType: event.payload.claimType,
       recipientIds: event.payload.informationAccess.recipientIds,
       acquisition: event.payload.informationAccess.acquisition,
       status: superseded.has(event.id) ? 'superseded' : 'current',
@@ -162,6 +170,7 @@ function admitProvisionalExposures({ provisionalExposures, sourcePair, settlemen
   let previousOrder = -1;
   for (const entry of provisionalExposures) {
     const event = entry?.event;
+    if (event?.operation === 'addFact' && !hasStatementQuote(event)) continue;
     if (!event || !['open', 'addFact'].includes(event.operation) || (event.operation === 'addFact' && !event.payload?.informationAccess)
         || !validateContinuityEvent(event, { branchId: settlement.branchId, maximumRevision: settlement.revision + 1 }).ok) fail('knowledge_provisional_invalid');
     const source = Object.values(sourcePair).find(source => sameSource(source, entry.position?.source));
