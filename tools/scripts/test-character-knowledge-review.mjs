@@ -150,3 +150,62 @@ assert.equal(narrationCalls - beforeFormatNarrations, 1);
 fullFormatFlight.assertCurrent(fullFormatApproved.draft.flightDigest);
 fullFormatFlight.dispose();
 console.log('PASS reviewer correction respects reservations, Stop, provider failures and semantic verdicts without regenerating the scene');
+// A diagnostic overflow must retain the semantic rejection without buying another call.
+for (const mode of ['overflow', 'too-large', 'stale', 'bad-reference', 'bad-type', 'duplicate', 'pass-with-findings', 'empty-explanation']) {
+  let calls = 0;
+  const rejectBudget = createTurnAttemptBudget({ limit: 2 });
+  const reservation = rejectBudget.reserve('retained-finalization', 1);
+  let wire;
+  const overflowReviewer = createCharacterKnowledgeReviewer({ generation: { async generate(role, request, options) {
+    calls++; options.attemptBudget.claim();
+    const input = JSON.parse(request.messages[1].content);
+    const finding = { id: 'finding.long', segmentId: 'segment.1', subjectId: 'person.a', type: 'narrator-leakage', explanation: 'x'.repeat(mode === 'too-large' ? 4001 : 489), supportIds: [] };
+    wire = { kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'reject', findings: [finding] };
+    if (mode === 'stale') wire.supportDigest = 'f'.repeat(64);
+    if (mode === 'bad-reference') wire.findings.push({ ...finding, id: 'finding.bad', segmentId: 'forged.segment' });
+    if (mode === 'bad-type') wire.findings.push({ ...finding, id: 'finding.bad', type: 'forged-type' });
+    if (mode === 'duplicate') wire.findings.push({ ...finding });
+    if (mode === 'pass-with-findings') wire.verdict = 'pass';
+    if (mode === 'empty-explanation') wire.findings.push({ ...finding, id: 'finding.empty', explanation: '' });
+    return { text: JSON.stringify(wire) };
+  } } });
+  const pending = overflowReviewer.review({ candidate, draft, scenePacket: scene, budget: rejectBudget });
+  if (mode === 'overflow') {
+    const result = (await pending).review;
+    assert.equal(result.verdict, 'reject');
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.findings[0].explanation.length, 480);
+    assert.deepEqual({ ...result.findings[0], explanation: wire.findings[0].explanation }, wire.findings[0]);
+    assert.equal(result.candidateDigest, wire.candidateDigest);
+    assert.equal(result.supportDigest, wire.supportDigest);
+    assert.equal(wire.findings[0].explanation.length, 489, 'raw provider receipt remains untouched');
+  } else await assert.rejects(pending, { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+  assert.equal(calls, 1, mode);
+  assert.equal(rejectBudget.used, 1);
+  assert.equal(rejectBudget.available, 0);
+  assert.equal(rejectBudget.release(reservation), 1);
+}
+console.log('PASS bounded reject explanation recovery preserves custody, findings and reservations');
+
+// Overflow recovery still requires the ordinary semantic repair and a new verdict.
+for (const finalVerdict of ['pass', 'reject']) {
+  let reviewCount = 0;
+  const semanticBudget = createTurnAttemptBudget({ limit: 5 });
+  const semanticFlight = makeFlight(semanticBudget);
+  const longReviewer = createCharacterKnowledgeReviewer({ generation: { async generate(role, request, options) {
+    options.attemptBudget.claim(); reviewCount++;
+    const input = JSON.parse(request.messages[1].content);
+    const status = reviewCount === 1 ? 'reject' : finalVerdict;
+    return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest,
+      supportDigest: input.supportDigest, verdict: status, findings: status === 'pass' ? [] : [{
+        id: 'finding.long', segmentId: 'segment.1', subjectId: 'person.a', type: 'narrator-leakage', explanation: 'x'.repeat(489), supportIds: [],
+      }] }) };
+  } } });
+  const pending = createReviewedCharacterScene({ narrator, reviewer: longReviewer }).generate({ flight: semanticFlight, scenePacket: scene, budget: semanticBudget });
+  if (finalVerdict === 'pass') assert.equal((await pending).review.verdict, 'pass');
+  else await assert.rejects(pending, { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_REJECTED' });
+  assert.equal(reviewCount, 2);
+  assert.equal(semanticBudget.used, 5, 'no additional model call for diagnostic normalization');
+  semanticFlight.dispose();
+}
+console.log('PASS normalized rejection still requires semantic repair and fresh approval');
