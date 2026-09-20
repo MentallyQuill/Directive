@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import { assertCharacterAudienceAdmission } from '../../src/story/character-audience-admission.mjs';
+assert.throws(()=>assertCharacterAudienceAdmission({},{}),{code:'DIRECTIVE_CHARACTER_AUDIENCE_INVALID'});
+console.log('PASS forged capability rejected');
+import { prepareCharacterAudienceInput } from '../../src/runtime/character-audience-preparation.mjs';
+import { makeAudienceFixture } from './character-audience-test-fixtures.mjs';
+import { parseCharacterAudienceReview, createCharacterAudienceAdmission, getAdmittedCharacterPacket } from '../../src/story/character-audience-admission.mjs';
+const input=makeAudienceFixture();
+const p=prepareCharacterAudienceInput(input);
+const pass=prepared=>parseCharacterAudienceReview({kind:'directive.characterAudienceReview.v1',manifestDigest:prepared.manifestDigest,evidenceDigest:prepared.evidenceDigest,identityDigest:prepared.identityDigest,verdict:'pass',checkedEntryIds:prepared.manifest.entries.map(e=>e.id),findings:[]},{...prepared,entryIds:prepared.manifest.entries.map(e=>e.id)});
+const review=pass(p);
+p.preparedByPerson.get('mara-whitaker').situation='Unreviewed private 22:43';
+assert.throws(()=>createCharacterAudienceAdmission(p,review),{code:'DIRECTIVE_CHARACTER_SCENE_STALE'});
+console.log('PASS mutation before capability mint blocked');
+const clean=prepareCharacterAudienceInput(makeAudienceFixture());
+const raw={kind:'directive.characterAudienceReview.v1',manifestDigest:clean.manifestDigest,evidenceDigest:clean.evidenceDigest,identityDigest:clean.identityDigest,verdict:'pass',checkedEntryIds:clean.manifest.entries.map(e=>e.id),findings:[]};
+const context={...clean,entryIds:raw.checkedEntryIds};
+for(const mutation of [v=>v.checkedEntryIds.pop(),v=>v.checkedEntryIds.push(v.checkedEntryIds[0]),v=>v.checkedEntryIds[0]='unknown',v=>v.manifestDigest='swapped',v=>v.extra=true,v=>v.findings.push({entryId:v.checkedEntryIds[0],reason:'unsupported'})]) {
+ const value=structuredClone(raw); mutation(value); assert.throws(()=>parseCharacterAudienceReview(value,context),{code:'DIRECTIVE_CHARACTER_AUDIENCE_INVALID'});
+}
+assert.throws(()=>createCharacterAudienceAdmission(clean,raw),{code:'DIRECTIVE_CHARACTER_AUDIENCE_INVALID'});
+const rejected=parseCharacterAudienceReview({...raw,verdict:'reject',findings:[{entryId:raw.checkedEntryIds[0],reason:'Recipient unsupported'}]},context);
+assert.throws(()=>createCharacterAudienceAdmission(clean,rejected),{code:'DIRECTIVE_CHARACTER_AUDIENCE_REJECTED'});
+const capability=createCharacterAudienceAdmission(clean,pass(clean));
+assert.equal(assertCharacterAudienceAdmission(capability,{prepared:clean,identity:input.identity}),true);
+assert.throws(()=>assertCharacterAudienceAdmission(structuredClone(capability),{prepared:clean,identity:input.identity}),{code:'DIRECTIVE_CHARACTER_AUDIENCE_INVALID'});
+assert.throws(()=>assertCharacterAudienceAdmission(capability,{prepared:clean,identity:{...input.identity,generationEpoch:2}}),{code:'DIRECTIVE_CHARACTER_SCENE_STALE'});
+const detached=getAdmittedCharacterPacket(capability,'priya-nayar'); detached.information=[];
+assert.ok(getAdmittedCharacterPacket(capability,'priya-nayar').information.length>0);
+clean.selectedArchiveIds.get('priya-nayar').push('injected');
+assert.throws(()=>getAdmittedCharacterPacket(capability,'priya-nayar'),{code:'DIRECTIVE_CHARACTER_SCENE_STALE'});
+console.log('PASS strict receipt coverage, rejection, detached packets and stale capability');
+assert.throws(()=>parseCharacterAudienceReview({...raw,manifestDigest:'short'},{...context,manifestDigest:'short'}),{code:'DIRECTIVE_CHARACTER_AUDIENCE_INVALID'});
+console.log('PASS review digest format is strict');

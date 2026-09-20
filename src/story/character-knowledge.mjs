@@ -109,7 +109,7 @@ export function createCharacterKnowledgePacket({ snapshot, personId, sourcePair 
     }));
     const selected = selectCharacterRecords(candidates, { ...focus, requiredIds: [...(focus.requiredIds ?? []), ...perceptionIds] }, limits.maxRecords ?? 128, authoredInformation, compileSelected);
     const packet = compileSelected(selected);
-    return { ok: true, packet, digest: stableSha256Hex(canonicalJson(packet)), diagnostics: { eligibleCount: candidates.length, includedCount: selected.length, omittedCount: candidates.length - selected.length, coverage: candidates.length === selected.length ? 'complete' : 'partial' } };
+    return { ok: true, packet, selectedArchiveIds: selected.map(item => item.id), digest: stableSha256Hex(canonicalJson(packet)), diagnostics: { eligibleCount: candidates.length, includedCount: selected.length, omittedCount: candidates.length - selected.length, coverage: candidates.length === selected.length ? 'complete' : 'partial' } };
   } catch (error) {
     if (!['DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID', 'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET'].includes(error?.code)) throw error;
     return { ok: false, reason: error.message, code: error.code };
