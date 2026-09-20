@@ -16,6 +16,9 @@ assert.equal(result.text, 'A waits beside the hatch.\n\nReady.');
 assert.match(result.candidateDigest, /^[a-f0-9]{64}$/);
 assert.ok(!JSON.stringify(calls).includes('SECRET_PRESET'));
 assert.ok(JSON.stringify(calls).includes('Use second person'));
+assert.match(calls[0].messages[0].content, /Continue after the current player input/);
+assert.match(calls[0].messages[0].content, /Do not replay/);
+assert.match(calls[0].messages[0].content, /Do not complete.*clipped/);
 for (const invalid of [[segments[0]], [...segments, segments[1]], [{ kind: 'character', id: 'line.forged' }]]) {
   segments = invalid;
   await assert.rejects(narrator.narrate(args), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });

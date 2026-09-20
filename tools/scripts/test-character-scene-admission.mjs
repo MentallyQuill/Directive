@@ -53,3 +53,26 @@ const analyst = createContinuityAnalyst({ generationRouter: { generate: async (_
 } } });
 assert.equal((await analyst({ request })).ok, true);
 console.log('PASS bounded scene admission feedback and explicit player/audience contract');
+
+for (const [text, quote] of [
+  ['Lieutenant Nayar, Commander Vale requests the schedule.', 'Lieutenant Nayar, Comm'],
+  ["The duty captain's scheduling request is pending.", "The duty captain"],
+  ['Commander 𐐀𐐁 requests the schedule.', 'Commander 𐐀'],
+]) {
+  assert.throws(() => createCharacterSceneAdmission({ ...args,
+    sourcePair: { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text } },
+    proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: quote }] }
+  }), error => error.code === 'DIRECTIVE_CHARACTER_SCENE_ADMISSION_INVALID' && /complete words/.test(error.feedback));
+}
+const repeatedText = 'Report on the sealed hatchway. Report on the sealed hatch is requested.';
+const repeated = createCharacterSceneAdmission({ ...args,
+  sourcePair: { ...sourcePair, currentPlayer: { ...sourcePair.currentPlayer, text: repeatedText } },
+  proposal: { ...proposal, playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: 'Report on the sealed hatch' }] }
+});
+assert.equal(repeated.proposal.playerContext[0].evidenceQuote, 'Report on the sealed hatch', 'a later exact occurrence at word boundaries remains valid without whole-sentence expansion');
+console.log('PASS player scene rejects clipped words without broadening admitted context');
+
+const historicalClipped = structuredClone(record);
+historicalClipped.proposal.playerContext[0].evidenceQuote = 'Report on the sealed hat';
+assert.equal(validateCharacterSceneAdmissionRecord(historicalClipped).ok, true);
+assert.equal(materializeCharacterSceneAdmission(historicalClipped, args).playerInformation[0].text, 'Report on the sealed hat', 'existing accepted scene records retain their exact evidence without applying new proposal quality rules retroactively');
