@@ -70,6 +70,7 @@ import { createTimelineTransactionService } from './timeline-transaction-service
 import { BRANCH_DECISION_HISTORY_UNAVAILABLE, BRANCH_DECISION_HISTORY_MESSAGE, nativeBranchRefusalMatches } from './native-branch-refusal.mjs';
 import {
   acceptedPairFingerprint,
+  acceptedPairCallBudgetKey,
   assertAcceptedPairRecovery,
   createAcceptedPairCallBudget,
   noAcceptedPairRecovery,
@@ -1890,11 +1891,12 @@ export function createDirectiveRuntimeApp({
     let mission = null;
     let persistenceAttempts = 0;
     const fingerprint = acceptedPairFingerprint(snapshot);
+    const budgetKey = acceptedPairCallBudgetKey(snapshot);
     activeAnalysisFingerprint = fingerprint;
     const budgetAttemptKind = attemptKind === 'manual' ? 'manual' : 'automatic';
     const budgetReserved = allowModelCall === true
-      && fingerprint
-      && acceptedPairCallBudget.reserve(fingerprint, budgetAttemptKind);
+      && budgetKey
+      && acceptedPairCallBudget.reserve(budgetKey, budgetAttemptKind);
     try {
       do {
         persistenceAttempts += 1;
@@ -1920,9 +1922,9 @@ export function createDirectiveRuntimeApp({
       }
     }
     if (mission?.ok === true) {
-      acceptedPairCallBudget.clear(fingerprint);
+      acceptedPairCallBudget.clear(budgetKey);
     } else if (budgetReserved && (progressScope?.signal?.aborted || mission?.attempted !== true)) {
-      acceptedPairCallBudget.release(fingerprint, budgetAttemptKind);
+      acceptedPairCallBudget.release(budgetKey, budgetAttemptKind);
     }
     if (progressScope?.signal?.aborted) throw generationAbortedError();
     const time = mission?.time || null;
@@ -1933,7 +1935,7 @@ export function createDirectiveRuntimeApp({
         blockedRoles: mission.blockedRoles || mission.diagnostics?.blockedRoles || [],
       }));
       if (mission.reasonCode === 'accepted-pair-source-stale') {
-        acceptedPairCallBudget.clear(fingerprint);
+        acceptedPairCallBudget.clear(budgetKey);
         acceptedPairRecovery = reconcileRequiredRecovery(mission.reasonCode);
         acceptedPairRecoveryGestureId = recoveryGestureId;
       } else {
@@ -3343,7 +3345,7 @@ export function createDirectiveRuntimeApp({
           return { ok: false, reasonCode: 'pending-source-stale', settlementBlocked: false };
         }
         // A new explicit gesture grants one failed-role attempt for this source.
-        acceptedPairCallBudget.release(pending.fingerprint, 'manual');
+        acceptedPairCallBudget.release(acceptedPairCallBudgetKey(pending.snapshot), 'manual');
         const settled = await settleSnapshot(pending.snapshot, pending.ingressId, {
           generationType: pending.generationType || 'normal',
           attemptKind: 'manual',

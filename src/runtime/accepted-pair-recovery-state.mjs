@@ -20,6 +20,17 @@ export function acceptedPairFingerprint(snapshot) {
   return compact(snapshot?.source?.sourceRangeHash) || null;
 }
 
+// Attempt ownership is narrower than the source/receipt fingerprint: cloned
+// timelines can contain identical message IDs and text, but own separate calls.
+export function acceptedPairCallBudgetKey(snapshot) {
+  const fingerprint = acceptedPairFingerprint(snapshot);
+  if (!fingerprint) return null;
+  const envelope = snapshot?.envelope || {};
+  return JSON.stringify(['accepted-pair-call-budget.v1',
+    ...['campaignId', 'saveId', 'chatId', 'packageId', 'packageVersion'].map(field => compact(envelope[field])),
+    fingerprint]);
+}
+
 export function noAcceptedPairRecovery() {
   return {
     kind: V1_ACCEPTED_PAIR_RECOVERY_KIND,
