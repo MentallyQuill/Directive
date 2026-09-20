@@ -32,3 +32,23 @@ assert.notEqual(receipt.id, (await createDirectorReceipt(input)).id);
 assert.equal(validateDirectorReceipt({ ...receipt, characterScene: { ...admission, extra: true } }).ok, false);
 assert.equal(Object.hasOwn(await createDirectorReceipt(input), 'characterScene'), false);
 console.log('PASS protected continuity scene contract and source-bound director receipt; legacy contract preserved');
+// Exercise schema semantics and parser parity, including nullable lookup responses.
+function accepts(schema, value) {
+ if (schema.anyOf && !schema.anyOf.some(s => accepts(s,value))) return false;
+ if (schema.const !== undefined && JSON.stringify(schema.const)!==JSON.stringify(value)) return false;
+ if (schema.enum && !schema.enum.includes(value)) return false;
+ if (schema.type && !(schema.type==='integer'?Number.isInteger(value):schema.type==='null'?value===null:schema.type==='array'?Array.isArray(value):schema.type==='object'?value!==null&&typeof value==='object'&&!Array.isArray(value):typeof value===schema.type)) return false;
+ if(value && typeof value==='object'&&!Array.isArray(value)) {
+  if(schema.required?.some(k=>!Object.hasOwn(value,k))) return false;
+  if(schema.additionalProperties===false&&Object.keys(value).some(k=>!Object.hasOwn(schema.properties||{},k))) return false;
+  if(Object.entries(schema.properties||{}).some(([k,s])=>Object.hasOwn(value,k)&&!accepts(s,value[k]))) return false;
+ }
+ if(Array.isArray(value)&&schema.items&&value.some(v=>!accepts(schema.items,v)))return false;
+ return true;
+}
+for(const sceneOnly of [false,true]) for(const [coverage, characterScene, valid] of [['complete',scene,true],['complete',null,false],['lookup-needed',null,true],['lookup-needed',scene,false],['overflow',scene,true],['overflow',null,false]]) {
+ const input={...request,currentScene:{...request.currentScene,sceneOnly}};
+ const output={...proposal,coverage,characterScene,lookupRequests:coverage==='lookup-needed'?[{threadIds:[],query:'crew'}]:[]};
+ assert.equal(accepts(createFocusedStorySchema(input,'continuityAnalyst'),output),valid,`${coverage} scene=${characterScene===null?'null':'object'} sceneOnly=${sceneOnly}`);
+ assert.equal(parseContinuityAnalystOutput(output,{request:input}).ok,valid && coverage!=='overflow');
+}

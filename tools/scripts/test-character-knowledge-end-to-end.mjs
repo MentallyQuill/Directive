@@ -1,3 +1,4 @@
+import { audienceTestCapacity, audienceTestResponse } from './character-audience-test-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { createFakeDirectiveHost, createFakeGenerationClient, createFakePromptAdapter } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
@@ -63,7 +64,8 @@ const campaignBefore = (await app.getCurrentView({ tabId: 'mission' })).campaign
 const identity = { bindingKey: 'test.end-to-end', branchId: campaignBefore.storySettlement.branchId, sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 };
 const guard = createCharacterPublicationGuard({ publicationId: 'publication.end-to-end', identity, baselineRows: initialRows, readRows: () => host.chat.messages(), readIdentity: () => identity });
 const calls = [];
-const protectedGeneration = { async generate(roleId, request, options) {
+const protectedGeneration = { getRequestCapacity: audienceTestCapacity, async generate(roleId, request, options) {
+  if (roleId === 'characterAudienceReviewer') return { ...audienceTestResponse(request, options), usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 } };
   options.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content); calls.push({ roleId, input });
   let output;
   if (roleId === 'characterResponder') {
@@ -95,7 +97,7 @@ await turn.publish(async options => {
   return { persisted: true };
 });
 assert.deepEqual(calls.map(item => item.roleId), ['characterResponder', 'sceneNarrator', 'characterKnowledgeReviewer']);
-assert.equal(turn.diagnostics.attempts, 3);
+assert.equal(turn.diagnostics.attempts, 4);
 assert.equal(turn.diagnostics.tokenUsageComplete, true);
 assert.deepEqual((await app.getCurrentView({ tabId: 'mission' })).campaignState, campaignBefore, 'publication remains provisional');
 host.chat.pushPlayerMessage({ text: 'I acknowledge the briefing.' });

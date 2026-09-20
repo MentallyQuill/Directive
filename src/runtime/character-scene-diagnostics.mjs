@@ -1,7 +1,7 @@
 import { stableSha256Hex } from './v1-stable-hash.mjs';
-const PHASES = new Set(['characters', 'narration', 'review', 'repair', 'publication']);
-const ROLES = new Set(['characterResponder', 'sceneNarrator', 'characterKnowledgeReviewer']);
-const FAILURES = new Set(['DIRECTIVE_CHARACTER_KNOWLEDGE_REJECTED', 'DIRECTIVE_CHARACTER_SCENE_STALE', 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING', 'DIRECTIVE_GENERATION_ABORTED', 'DIRECTIVE_TURN_ATTEMPT_LIMIT', 'provider_empty_content', 'provider_reasoning_only', 'provider_token_limit', 'provider-aborted', 'json_empty', 'json_parse_failed']);
+const PHASES = new Set(['audience', 'characters', 'narration', 'review', 'repair', 'publication']);
+const ROLES = new Set(['characterAudienceReviewer', 'characterResponder', 'sceneNarrator', 'characterKnowledgeReviewer']);
+const FAILURES = new Set(['DIRECTIVE_CHARACTER_AUDIENCE_INVALID', 'DIRECTIVE_CHARACTER_AUDIENCE_REJECTED', 'DIRECTIVE_CHARACTER_AUDIENCE_SOURCE_UNAVAILABLE', 'DIRECTIVE_CHARACTER_AUDIENCE_CAPACITY', 'DIRECTIVE_CHARACTER_AUDIENCE_CAPACITY_UNAVAILABLE', 'DIRECTIVE_CHARACTER_KNOWLEDGE_REJECTED', 'DIRECTIVE_CHARACTER_SCENE_STALE', 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING', 'DIRECTIVE_GENERATION_ABORTED', 'DIRECTIVE_TURN_ATTEMPT_LIMIT', 'provider_empty_content', 'provider_reasoning_only', 'provider_token_limit', 'provider-aborted', 'json_empty', 'json_parse_failed']);
 const failure = value => value == null ? null : FAILURES.has(value) ? value : 'generation-failed';
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 export function createCharacterSceneDiagnostics({ identity = {}, publicationId = '', clock = () => performance.now(), onUpdate } = {}) {

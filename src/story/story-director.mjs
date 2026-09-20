@@ -840,7 +840,14 @@ export function createFocusedStorySchema(request, roleId) {
       } },
     } : { direction: base.properties.direction }),
   };
-  return { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
+  const schema = { type: 'object', additionalProperties: false, required: Object.keys(properties), properties };
+  if (continuity && request.currentScene?.characterKnowledge === 'protected') {
+    schema.anyOf = [
+      { properties: { coverage: { enum: ['complete', 'overflow'] }, characterScene: properties.characterScene.anyOf[0] } },
+      { properties: { coverage: { const: 'lookup-needed' }, characterScene: { type: 'null' } } },
+    ];
+  }
+  return schema;
 }
 
 export function parseFocusedStoryOutput(value, { request, roleId, limits = request?.analysisLimits || {}, evidenceCatalog = null } = {}) {

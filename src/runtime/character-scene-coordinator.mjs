@@ -1,5 +1,6 @@
+import { assertCharacterAudienceAdmission, getAdmittedCharacterPacket, characterAudienceDigest } from '../story/character-audience-admission.mjs';
 import { materializeCharacterSceneEvidence } from '../story/character-scene-admission.mjs';
-import { createCharacterKnowledgePacket, compileCharacterPacket } from '../story/character-knowledge.mjs';
+import { compileCharacterPacket } from '../story/character-knowledge.mjs';
 import { parseCharacterContribution, parseCharacterExposure } from '../story/character-knowledge-contracts.mjs';
 import { CONTINUITY_STABLE_ID_PATTERN } from '../story/continuity-contracts.mjs';
 import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
@@ -83,17 +84,15 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
     if (!Number.isSafeInteger(limits[key]) || limits[key] < 1 || limits[key] > ({ maxActors: 3, maxRounds: 2, maxCharacterCalls: 4, concurrency: 2 })[key]) fail();
   }
   return {
-    createFlight({ snapshot, sourcePair = {}, provisionalExposures = [], sceneEvidence = null, participants, identity, plan, playerId, budget, signal, isCurrent } = {}) {
+    createFlight({ snapshot, sourcePair = {}, provisionalExposures = [], sceneEvidence = null, participants, identity, plan, playerId, budget, signal, isCurrent, audienceAdmission, audiencePreparation, finalizationReservations } = {}) {
       assertGenerationActive(signal);
       if (typeof isCurrent !== 'function' || !identity || typeof identity.bindingKey !== 'string' || !identity.bindingKey
         || !validId(identity.branchId) || snapshot?.state?.storySettlement?.branchId !== identity.branchId
         || !['sourceDigest', 'settingsDigest'].every(key => /^[a-f0-9]{64}$/.test(identity[key]))
         || !Number.isSafeInteger(identity.epoch) || identity.epoch < 0 || typeof budget?.reserve !== 'function') fail();
       const capturedSceneEvidence = sceneEvidence === null ? null : structuredClone(sceneEvidence);
-      let scenePerceptions = new Map();
       if (capturedSceneEvidence) {
         const admitted = materializeCharacterSceneEvidence(capturedSceneEvidence, new Set(snapshot?.characters?.keys() || []));
-        scenePerceptions = admitted.perceptions;
         if (capturedSceneEvidence.admission.playerId !== playerId || canonicalJson(capturedSceneEvidence.sourcePair) !== canonicalJson(sourcePair)
           || canonicalJson(admitted.participants) !== canonicalJson(participants) || canonicalJson(admitted.plan) !== canonicalJson(plan)) fail();
       }
@@ -104,11 +103,16 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
         || [...node.audience.keys()].some(id => id !== playerId && !captured.characters.has(id)))) fail();
       if ([...nodes.values()].reduce((count, node) => count + node.audience.size, 0) > 32) fail('DIRECTIVE_CHARACTER_SCENE_CAPACITY');
       const baseDigest = digest({ identity: frozenIdentity, snapshot: captured, sourcePair: capturedPair, provisionalExposures: capturedExposures, sceneEvidence: capturedSceneEvidence, plan, participants, limits });
+      assertCharacterAudienceAdmission(audienceAdmission, { prepared: audiencePreparation, identity: frozenIdentity });
+      const approvedScene = materializeCharacterSceneEvidence({ admission: audiencePreparation.evidence.admission, sourcePair: audiencePreparation.evidence.sourcePair }, new Set(captured.characters.keys()));
+      if (audiencePreparation.evidence.admission.playerId !== playerId || canonicalJson(approvedScene.plan) !== canonicalJson(plan) || canonicalJson(approvedScene.participants) !== canonicalJson(participants)
+        || canonicalJson(audiencePreparation.evidence.sourcePair) !== canonicalJson(sourcePair)
+        || audiencePreparation.manifest.planDigest !== characterAudienceDigest({ plan, participants, admission: audiencePreparation.evidence.admission, state: captured.state, sourceIdentities: [...captured.sourceIdentities], selectedArchiveIds: [...audiencePreparation.selectedArchiveIds] })) fail('DIRECTIVE_CHARACTER_SCENE_STALE');
       if (!isCurrent(structuredClone(frozenIdentity))) fail('DIRECTIVE_CHARACTER_SCENE_STALE');
-      if (budget.available < nodes.size + 2) fail('DIRECTIVE_TURN_ATTEMPT_LIMIT');
-      const narration = budget.reserve(`narration.${baseDigest}`, 1);
+      if (budget.available < nodes.size + (finalizationReservations ? 0 : 2)) fail('DIRECTIVE_TURN_ATTEMPT_LIMIT');
+      const narration = finalizationReservations?.narration ?? budget.reserve(`narration.${baseDigest}`, 1);
       let review;
-      try { review = budget.reserve(`review.${baseDigest}`, 1); } catch (error) { budget.release(narration); throw error; }
+      try { review = finalizationReservations?.review ?? budget.reserve(`review.${baseDigest}`, 1); } catch (error) { budget.release(narration); throw error; }
       const cache = new Map(), invalidated = new Set();
       let version = 0, closed = false, running = false, candidate = null, controller = new AbortController();
       const check = expected => {
@@ -122,36 +126,25 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
       };
       signal?.addEventListener('abort', dispose, { once: true });
       function packetFor(node, order) {
-        // Fit optional archive history against the final packet, including
-        // mandatory current perceptions and causal same-reply contributions.
-        const compiled = createCharacterKnowledgePacket({ snapshot: captured, sourcePair: capturedPair, provisionalExposures: capturedExposures,
-          personId: node.personId, beforeOrder: Number.MAX_SAFE_INTEGER, limits, finalizePacket: base => {
-          const sourceIds = new Set(['archive.packet']);
-          const candidates = base.information.map(item => ({ ...item, recipientIds: [node.personId], sourceIds: ['archive.packet'], learnedAt: -1 }));
-          const perceptions = scenePerceptions.get(node.personId) || [];
-          if (perceptions.length) {
-            const sourceId = digest(capturedSceneEvidence);
-            sourceIds.add(sourceId);
-            for (const item of perceptions) candidates.push({ ...item, recipientIds: [node.personId], sourceIds: [sourceId], learnedAt: -1 });
-          }
-          for (const id of node.dependsOnIds) {
-            const entry = cache.get(id);
-            const own = entry?.contribution.personId === node.personId;
-            if (!entry || (!own && !entry.contribution.recipientIds.includes(node.personId))) fail();
-            const exposure = own ? { id: `self-contribution.${digest(id).slice(0, 24)}`, text: entry.contribution.text }
-              : entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
-            if (!exposure) fail();
-            const acquisition = own ? 'observed' : nodes.get(id).audience.get(node.personId);
-            sourceIds.add(entry.contributionDigest);
-            candidates.push({ id: exposure.id, text: exposure.text, claimType: 'character-claim', acquisition,
-              status: 'current', recipientIds: [node.personId], sourceIds: [entry.contributionDigest], learnedAt: entry.order });
-          }
-          return compileCharacterPacket({ personId: node.personId, identity: base.identity, publicSituation: perceptions.length ? `Current source-admitted perceptions:\n${perceptions.map(item => item.text).join('\n')}` : base.situation,
-            authoredInformation: base.authoredInformation, candidates, validSourceIds: sourceIds, beforeOrder: order,
-            maxCharacters: limits.maxCharacters ?? 12000, maxEstimatedTokens: limits.maxEstimatedTokens ?? 12000 });
-        } });
-        if (!compiled.ok) fail(compiled.code);
-        return compiled.packet;
+        assertCharacterAudienceAdmission(audienceAdmission, { prepared: audiencePreparation, identity: frozenIdentity });
+        const base = getAdmittedCharacterPacket(audienceAdmission, node.personId);
+        const sourceIds = new Set(['approved.packet']);
+        const candidates = base.information.map(item => ({ ...item, recipientIds: [node.personId], sourceIds: ['approved.packet'], learnedAt: -1 }));
+        for (const id of node.dependsOnIds) {
+          const entry = cache.get(id);
+          const own = entry?.contribution.personId === node.personId;
+          if (!entry || (!own && !entry.contribution.recipientIds.includes(node.personId))) fail();
+          const exposure = own ? { id: `self-contribution.${digest(id).slice(0, 24)}`, text: entry.contribution.text }
+            : entry.disclosures.find(item => item.exposure.recipientIds.includes(node.personId))?.exposure;
+          if (!exposure) fail();
+          const acquisition = own ? 'observed' : nodes.get(id).audience.get(node.personId);
+          sourceIds.add(entry.contributionDigest);
+          candidates.push({ id: exposure.id, text: exposure.text, claimType: 'character-claim', acquisition,
+            status: 'current', recipientIds: [node.personId], sourceIds: [entry.contributionDigest], learnedAt: entry.order });
+        }
+        return compileCharacterPacket({ personId: node.personId, identity: base.identity, publicSituation: base.situation,
+          authoredInformation: base.authoredInformation, candidates, validSourceIds: sourceIds, beforeOrder: order,
+          maxCharacters: limits.maxCharacters ?? 12000, maxEstimatedTokens: limits.maxEstimatedTokens ?? 12000 });
       }
       return {
         get revision() { return version; },
@@ -190,6 +183,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                   const packet = packetFor(node, order), packetDigest = digest(packet);
                   const cacheKey = digest({ baseDigest, node, packetDigest, dependencies: node.dependsOnIds.map(id => cache.get(id)?.contributionDigest) });
                   if (cache.get(node.id)?.cacheKey === cacheKey) return;
+                  assertCharacterAudienceAdmission(audienceAdmission, { prepared: audiencePreparation, identity: frozenIdentity });
                   const result = await abortable(Promise.resolve(responder.respond({ packet, playerId, contributionId: node.id,
                     audienceIds: new Set(node.audience.keys()), audienceAcquisitions: new Map(node.audience), priorContributionIds: new Set(node.dependsOnIds), signal: runSignal, budget, repair: invalidated.has(node.id) })), runSignal);
                   check(runVersion); assertGenerationActive(runSignal);
@@ -206,7 +200,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                   if (dependencyExposures.some(id => !id)) fail();
                   const disclosures = contribution.recipientIds.map((recipientId, recipientIndex) => {
                     const acquisition = node.audience.get(recipientId);
-                    if (contribution.kind === 'action' && acquisition !== 'observed') fail();
+                    if (acquisition !== ({ speech: 'heard', action: 'observed', message: 'read' })[contribution.kind]) fail();
                     const exposure = parseCharacterExposure({ kind: 'directive.characterExposure.v1', id: `disclosure.${digest([node.id, recipientId]).slice(0, 24)}`,
                       speakerId: contribution.personId, recipientIds: [recipientId], acquisition,
                       text: contribution.text, claimType: 'character-claim', source: { type: 'contribution', contributionId: contribution.id },

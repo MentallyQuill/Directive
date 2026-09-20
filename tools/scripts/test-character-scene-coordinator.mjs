@@ -1,3 +1,4 @@
+import { admitCoordinatorFixture } from './character-audience-coordinator-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { createCharacterSceneCoordinator } from '../../src/runtime/character-scene-coordinator.mjs';
 import { createTurnAttemptBudget } from '../../src/generation/turn-attempt-budget.mjs';
@@ -6,23 +7,24 @@ const snapshot = {
   sourceIdentities: new Map(), characters: new Map([['person.a', { name: 'A', role: 'Engineer' }], ['person.b', { name: 'B', role: 'Officer' }]]),
   authoredKnowledge: [{ id: 'fact.private', type: 'background', text: 'Three minutes remain.', recipientIds: ['person.a'] }],
 };
-const participants = [
+let participants = [
   { personId: 'person.a', present: true, conscious: true, audience: [{ personId: 'person.b', acquisition: 'heard' }] },
   { personId: 'person.b', present: true, conscious: true, audience: [{ personId: 'person.a', acquisition: 'heard' }] },
 ];
 const identity = { bindingKey: 'chat.test', branchId: 'save.test', sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 };
-const plan = [{ id: 'line.a', personId: 'person.a', dependsOnIds: [] }, { id: 'line.b', personId: 'person.b', dependsOnIds: ['line.a'] }];
+let plan = [{ id: 'line.a', personId: 'person.a', dependsOnIds: [] }, { id: 'line.b', personId: 'person.b', dependsOnIds: ['line.a'] }];
 const packets = [];
-const responder = { async respond({ packet, contributionId, audienceIds, priorContributionIds, budget, signal }) {
+const responder = { async respond({ packet, contributionId, audienceIds, audienceAcquisitions, priorContributionIds, budget, signal }) {
   assert.equal(signal.aborted, false); budget.claim(); packets.push(packet);
-  return { contribution: { id: contributionId, personId: packet.personId, kind: 'speech', mode: 'ordinary', text: packet.personId === 'person.a' ? 'Three minutes remain.' : 'Understood.', basisIds: [], recipientIds: [...audienceIds], dependsOnIds: [...priorContributionIds] } };
+  return { contribution: { id: contributionId, personId: packet.personId, kind: [...audienceAcquisitions.values()].includes('read') ? 'message' : 'speech', mode: 'ordinary', text: packet.personId === 'person.a' ? 'Three minutes remain.' : 'Understood.', basisIds: [], recipientIds: [...audienceIds], dependsOnIds: [...priorContributionIds] } };
 } };
 const before = structuredClone(snapshot);
 const coordinator = createCharacterSceneCoordinator({ responder });
-const args = { snapshot, participants, identity, plan, playerId: 'person.player', budget: createTurnAttemptBudget(), isCurrent: () => true };
+const args = admitCoordinatorFixture({ snapshot, participants, identity, plan, playerId: 'person.player', budget: createTurnAttemptBudget(), isCurrent: () => true });
+({participants,plan}=args);
 const flight = coordinator.createFlight(args);
 const draft = await flight.run();
-assert.deepEqual(draft.contributions.map(item => item.id), ['line.a', 'line.b']);
+assert.deepEqual(draft.contributions.map(item => item.id), [plan[0].id, plan[1].id]);
 assert.equal(draft.rounds, 2);
 assert.equal(packets[0].information.length, 0);
 assert.equal(packets[1].information.length, 1);
@@ -31,10 +33,10 @@ assert.equal(packets[1].information[0].text, 'Three minutes remain.');
 assert.deepEqual(snapshot, before);
 assert.equal(args.budget.available, 6, 'two physical calls used and two finalization slots reserved');
 assert.match(draft.disclosures[0].contributionDigest, /^[a-f0-9]{64}$/);
-assert.equal(draft.disclosures[0].exposure.source.contributionId, 'line.a');
+assert.equal(draft.disclosures[0].exposure.source.contributionId, plan[0].id);
 flight.dispose();
 assert.equal(args.budget.available, 8);
-assert.throws(() => coordinator.createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [{ ...plan[0], dependsOnIds: ['line.b'] }, plan[1]] }), { code: 'DIRECTIVE_CHARACTER_SCENE_INVALID' });
+assert.throws(() => coordinator.createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [{ ...plan[0], dependsOnIds: [plan[1].id] }, plan[1]] }), { code: 'DIRECTIVE_CHARACTER_SCENE_INVALID' });
 assert.throws(() => coordinator.createFlight({ ...args, budget: createTurnAttemptBudget({ limit: 3 }) }), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
 console.log('PASS ordered, flight-local disclosure and finalization reservation');
 // Dependency replacement must invalidate B's packet and the old candidate digest.
@@ -43,10 +45,10 @@ let report = 'Three minutes remain.';
 const replacementPackets = [];
 const replacement = createCharacterSceneCoordinator({ responder: { async respond(input) {
   input.budget.claim(); replacementPackets.push(structuredClone(input.packet));
-  return { contribution: { ...draft.contributions.find(item => item.id === input.contributionId), text: input.contributionId === 'line.a' ? report : 'Updated.' } };
+  return { contribution: { ...draft.contributions.find(item => item.id === input.contributionId), text: input.contributionId === plan[0].id ? report : 'Updated.' } };
 } } }).createFlight({ ...args, budget: replacementBudget });
 const first = await replacement.run();
-assert.deepEqual(replacement.invalidate('line.a'), ['line.a', 'line.b']);
+assert.deepEqual(replacement.invalidate(plan[0].id), [plan[0].id, plan[1].id]);
 assert.equal(replacement.getDraft(), null);
 assert.throws(() => replacement.assertCurrent(first.flightDigest), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
 report = 'Two minutes remain.';
@@ -68,9 +70,9 @@ const parallel = createCharacterSceneCoordinator({ responder: { async respond(in
   return { contribution: { ...baseContribution(input), recipientIds: [] } };
 } } });
 function baseContribution(input) { return { id: input.contributionId, personId: input.packet.personId, kind: 'speech', mode: 'ordinary', text: 'Ready.', basisIds: [], recipientIds: [...input.audienceIds], dependsOnIds: [...input.priorContributionIds] }; }
-const parallelFlight = parallel.createFlight({ ...args, snapshot: parallelSnapshot, budget: createTurnAttemptBudget(),
+const parallelFlight = parallel.createFlight(admitCoordinatorFixture({ ...args, sceneEvidence: null, snapshot: parallelSnapshot, budget: createTurnAttemptBudget(),
   participants: [...participants, { personId: 'person.c', present: true, conscious: true, audience: [] }],
-  plan: ['a', 'b', 'c'].map(letter => ({ id: `line.${letter}`, personId: `person.${letter}`, dependsOnIds: [] })) });
+  plan: ['a', 'b', 'c'].map(letter => ({ id: `line.${letter}`, personId: `person.${letter}`, dependsOnIds: [] })) }));
 assert.equal((await parallelFlight.run()).rounds, 1);
 assert.equal(maximumActive, 2);
 parallelFlight.dispose();
@@ -96,12 +98,12 @@ for (const changes of [{ present: false }, { conscious: false }]) {
 }
 assert.deepEqual(snapshot, before);
 console.log('PASS dependency replacement, exact cache, bounded concurrency, Stop and stale source');
-const mixed = coordinator.createFlight({ ...args, budget: createTurnAttemptBudget(), participants: [
-  { ...participants[0], audience: [{ personId: 'person.b', acquisition: 'read' }, { personId: 'person.player', acquisition: 'heard' }] }, participants[1],
-] });
+const mixed = coordinator.createFlight(admitCoordinatorFixture({ ...args, sceneEvidence: null, budget: createTurnAttemptBudget(), participants: [
+  { ...participants[0], audience: [{ personId: 'person.b', acquisition: 'read' }, { personId: 'person.player', acquisition: 'read' }] }, participants[1],
+] }));
 const mixedDraft = await mixed.run();
 assert.equal(mixedDraft.disclosures.find(item => item.exposure.recipientIds.includes('person.b')).exposure.acquisition, 'read');
-assert.equal(mixedDraft.disclosures.find(item => item.exposure.recipientIds.includes('person.player')).exposure.acquisition, 'heard');
+assert.equal(mixedDraft.disclosures.find(item => item.exposure.recipientIds.includes('person.player')).exposure.acquisition, 'read');
 mixed.dispose();
 console.log('PASS each disclosure preserves its admitted channel modality');
 const invalidatedBudget = createTurnAttemptBudget();
@@ -114,7 +116,7 @@ const held = createCharacterSceneCoordinator({ responder: { async respond(input)
 } } }).createFlight({ ...args, budget: invalidatedBudget });
 const oldRun = held.run();
 await started;
-held.invalidate('line.a');
+held.invalidate(plan[0].id);
 await assert.rejects(oldRun, { code: 'DIRECTIVE_GENERATION_ABORTED' });
 releasePending();
 await Promise.resolve();
@@ -133,12 +135,12 @@ console.log('PASS unknown recipients reject and receipt disclosure positions are
 const repeatedPackets = [];
 const repeatedActor = createCharacterSceneCoordinator({ responder: { async respond(input) {
   input.budget.claim(); repeatedPackets.push({ id: input.contributionId, packet: structuredClone(input.packet) });
-  return { contribution: { ...baseContribution(input), text: input.contributionId === 'line.a' ? 'My first report.' : 'Next report.' } };
-} } }).createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [plan[0], { ...plan[1], dependsOnIds: [] }, { id: 'line.a2', personId: 'person.a', dependsOnIds: ['line.b'] }] });
+  return { contribution: { ...baseContribution(input), text: input.packet.personId === 'person.a' && !input.priorContributionIds.size ? 'My first report.' : 'Next report.' } };
+} } }).createFlight(admitCoordinatorFixture({ ...args, sceneEvidence: null, budget: createTurnAttemptBudget(), plan: [plan[0], { ...plan[1], dependsOnIds: [] }, { id: 'line.a2', personId: 'person.a', dependsOnIds: [plan[1].id] }] }));
 const repeatedDraft = await repeatedActor.run();
-assert.ok(repeatedDraft.contributions.find(item => item.id === 'line.a2').dependsOnIds.includes('line.a'), 'an actor cannot forget its own earlier contribution in the same flight');
-assert.ok(repeatedPackets.find(item => item.id === 'line.a2').packet.information.some(item => item.text === 'My first report.'));
-assert.deepEqual(repeatedActor.invalidate('line.a'), ['line.a', 'line.a2']);
+assert.ok(repeatedDraft.contributions.find(item => item.id === repeatedDraft.contributions[2].id).dependsOnIds.includes(repeatedDraft.contributions[0].id), 'an actor cannot forget its own earlier contribution in the same flight');
+assert.ok(repeatedPackets.find(item => item.id === repeatedDraft.contributions[2].id).packet.information.some(item => item.text === 'My first report.'));
+assert.deepEqual(repeatedActor.invalidate(repeatedDraft.contributions[0].id), [repeatedDraft.contributions[0].id, repeatedDraft.contributions[2].id]);
 repeatedActor.dispose();
 console.log('PASS repeated actors retain their own earlier contribution and invalidation dependency');
 
@@ -148,8 +150,8 @@ const routedFlight = createCharacterSceneCoordinator({ responder: { async respon
   assert.deepEqual(input.audienceAcquisitions, new Map([['person.player', 'observed'], ['person.b', 'heard']]));
   input.budget.claim();
   return { contribution: { ...baseContribution(input), kind: 'action', text: 'A privately shows the PADD to the player.', recipientIds: ['person.player'] } };
-} } }).createFlight({ ...args, budget: createTurnAttemptBudget(),
-  participants: [{ ...participants[0], audience: [{ personId: 'person.player', acquisition: 'observed' }, { personId: 'person.b', acquisition: 'heard' }] }], plan: [plan[0]] });
+} } }).createFlight(admitCoordinatorFixture({ ...args, sceneEvidence: null, budget: createTurnAttemptBudget(),
+  participants: [{ ...participants[0], audience: [{ personId: 'person.player', acquisition: 'observed' }, { personId: 'person.b', acquisition: 'heard' }] }], plan: [plan[0]] }));
 const routedDraft = await routedFlight.run();
 assert.equal(routedDraft.disclosures.length, 1);
 assert.equal(routedDraft.disclosures[0].exposure.acquisition, 'observed');
@@ -158,6 +160,6 @@ console.log('PASS exact admitted response channels reach actor and preserve disc
 // An alternate responder cannot bypass the final coordinator channel guard.
 const unsupportedAction = createCharacterSceneCoordinator({ responder: { async respond(input) {
   input.budget.claim(); return { contribution: { ...baseContribution(input), kind: 'action' } };
-} } }).createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [plan[0]] });
+} } }).createFlight(admitCoordinatorFixture({ ...args, sceneEvidence: null, budget: createTurnAttemptBudget(), plan: [plan[0]] }));
 await assert.rejects(unsupportedAction.run(), { code: 'DIRECTIVE_CHARACTER_SCENE_INVALID' });
 assert.equal(unsupportedAction.getDraft(), null);

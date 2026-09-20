@@ -238,6 +238,7 @@ assert.deepEqual(initial.generationRouting.map(({ id, providerKind }) => ({ id, 
   { id: 'characterCreatorSectionDraft', providerKind: 'reasoning' },
   { id: 'characterResponder', providerKind: 'reasoning' },
   { id: 'sceneNarrator', providerKind: 'narration' },
+  { id: 'characterAudienceReviewer', providerKind: 'utility' },
   { id: 'characterKnowledgeReviewer', providerKind: 'utility' }
 ]);
 assert.deepEqual(initial.diagnostics, { transcriptAvailable: true });
@@ -257,7 +258,7 @@ assert.equal('storyTranscript' in metadataOnlySupport, false);
 assert.equal('prompt' in metadataOnlySupport, false);
 assert.equal(JSON.stringify(metadataOnlySupport).includes('RAW_SECRET'), false);
 assert.equal(JSON.stringify(metadataOnlySupport.providers).includes('apiKey'), false);
-assert.equal(metadataOnlySupport.routing.length, 11);
+assert.equal(metadataOnlySupport.routing.length, 12);
 const transcriptSupport = JSON.parse((await app.exportSupportDiagnostics({ includeStoryTranscript: true })).jsonText);
 assert.deepEqual(transcriptSupport.storyTranscript, {
   kind: 'directive.playerVisibleTranscript.v1',

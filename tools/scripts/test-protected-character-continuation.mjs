@@ -1,3 +1,4 @@
+import { audienceTestCapacity, audienceTestResponse } from './character-audience-test-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { prepareProtectedCharacterTurn } from '../../src/runtime/protected-character-turn.mjs';
 import { createCharacterSceneAdmission } from '../../src/story/character-scene-admission.mjs';
@@ -11,7 +12,8 @@ const { text, ...identitySource } = sourcePair.previousAssistant;
 const continuation = { source: identitySource, text };
 const admission = createCharacterSceneAdmission({ proposal: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: 'I wait.' }] }, sourcePair, playerId: 'person.player', knownPersonIds: new Set() });
 const state = { player: { name: 'Tester' }, storySettlement: { branchId: 'save.test', revision: 1, activeEpisode: null, episodes: [], continuityEvents: [] } };
-const generation = { async generate(role, request, options) {
+const generation = { getRequestCapacity: audienceTestCapacity, async generate(role, request, options) {
+  if (role === 'characterAudienceReviewer') return audienceTestResponse(request, options);
   options.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content);
   if (role === 'sceneNarrator') { assert.equal(input.continuation.text, prior); return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.new', text: 'A light blinks on the console.' }] }) }; }
   assert.equal(input.support.continuation.text, prior);

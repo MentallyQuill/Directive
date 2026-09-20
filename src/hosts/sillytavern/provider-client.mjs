@@ -805,6 +805,24 @@ export function createDirectiveProviderClient({
     } catch { return null; }
   }
 
+  // Saved route configuration, not a claim about the remote model's actual window.
+  function getRequestCapacity(roleId) {
+    const kind = providerKindForRole(roleId), config = settingsStore.get(kind);
+    const outputTokens = resolveProviderMaxTokens({ utility: settingsStore.get('utility'), [kind]: config }, kind, roleId);
+    let contextTokens = null;
+    try {
+      if (config.provider === 'profile' && config.profileId) {
+        const context = contextFactory(), { profile, metadata } = resolveProfile(context, config.profileId);
+        const preset = presetSnapshot(context, metadata.completionMode === 'chat' ? 'openai' : 'textgenerationwebui', textValue(profile.preset));
+        const value = metadata.completionMode === 'chat' ? preset?.openai_max_context : preset?.max_length;
+        if (Number.isSafeInteger(value) && value > 0) contextTokens = value;
+      }
+    } catch { /* Missing route metadata is explicitly unavailable. */ }
+    return { routeFingerprint: configurationFingerprint(kind), contextTokens, outputTokens, unit: 'tokens',
+      provenance: contextTokens === null ? 'unavailable' : 'profile-preset', actualContextTokens: null,
+      measurement: 'conservative-utf8-estimate' };
+  }
+
   function notifyOutputLimit(roleId, utilitySettings, hasOutputOverride) {
     try {
       Promise.resolve(onOutputLimit?.({
@@ -891,6 +909,7 @@ export function createDirectiveProviderClient({
       || settingsStore.getRoleProviderKind?.(roleId)
       || providerKindForRole(roleId));
     const pinnedFingerprint = protectedRole ? configurationFingerprint(kind) : null;
+    if (options.capacityFingerprint != null && options.capacityFingerprint !== pinnedFingerprint) throw providerError('DIRECTIVE_CHARACTER_SCENE_STALE', 'Audience capacity route changed.');
     const savedConfig = settingsStore.get(kind);
     const config = protectedRole ? { ...savedConfig, presetMode: 'isolated', instructMode: 'off', samplerMode: 'directive' } : savedConfig;
     if (protectedRole && roleId === 'sceneNarrator' && (config.provider !== 'profile' || !config.profileId)) throw isolationError();
@@ -1111,6 +1130,7 @@ export function createDirectiveProviderClient({
     test,
     status,
     configurationFingerprint,
+    getRequestCapacity,
     listProfiles: () => listSillyTavernConnectionProfiles(contextFactory()),
     currentProfile: () => {
       const context = contextFactory();

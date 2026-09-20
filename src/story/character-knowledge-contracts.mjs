@@ -78,7 +78,7 @@ export function parseCharacterContributionRecord(value) {
   const keys = ['id', 'personId', 'kind', 'mode', 'text', 'basisIds', 'recipientIds', 'dependsOnIds'];
   object(value, keys, keys, 'contribution');
   id(value.id, 'contribution.id'); id(value.personId, 'contribution.personId');
-  choice(value.kind, ['speech', 'action'], 'contribution.kind');
+  choice(value.kind, ['speech', 'action', 'message'], 'contribution.kind');
   choice(value.mode, ['recall', 'inference', 'question', 'ordinary', 'deception'], 'contribution.mode');
   text(value.text, 4000, 'contribution.text');
   for (const [key, maximum] of [['basisIds', 32], ['recipientIds', 16], ['dependsOnIds', 16]]) {
@@ -97,7 +97,7 @@ export function parseCharacterContribution(value, { packet, playerId, audienceId
   id(value.id, 'contribution.id');
   id(playerId, 'contribution.playerId');
   if (value.personId !== checkedPacket.personId || value.personId === playerId) invalid('contribution.personId');
-  choice(value.kind, ['speech', 'action'], 'contribution.kind');
+  choice(value.kind, ['speech', 'action', 'message'], 'contribution.kind');
   choice(value.mode, ['recall', 'inference', 'question', 'ordinary', 'deception'], 'contribution.mode');
   text(value.text, 4000, 'contribution.text');
   references(value.basisIds, new Set([...checkedPacket.information, ...(checkedPacket.authoredInformation || [])].map(item => item.id)), 32, 'contribution.basisIds');
@@ -133,7 +133,7 @@ export function parseCharacterExposure(value, { speakerIds, audienceIds, passage
     if (!source || source.personId !== value.speakerId || !Array.isArray(source.recipientIds)
         || value.recipientIds.some(personId => !source.recipientIds.includes(personId))) invalid('exposure.source.contributionId');
     // Hearing a claim establishes that it was said, not that the claim is true.
-    if (source.kind === 'speech' && value.claimType !== 'character-claim') invalid('exposure.claimType');
+    if (['speech', 'message'].includes(source.kind) && value.claimType !== 'character-claim') invalid('exposure.claimType');
   }
   return structuredClone(value);
 }

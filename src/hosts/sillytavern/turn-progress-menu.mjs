@@ -12,7 +12,7 @@ export const PROGRESS_STAGES = Object.freeze({
   'installing-prompt': 'Installing reply context',
 });
 export const PROGRESS_PHASES = Object.freeze({
-  characters: 'Preparing character responses', narration: 'Writing the scene', review: 'Checking character knowledge', repair: 'Revising the scene', publication: 'Saving the reviewed scene',
+  audience: 'Checking character access', characters: 'Preparing character responses', narration: 'Writing the scene', review: 'Checking character knowledge', repair: 'Revising the scene', publication: 'Saving the reviewed scene',
   'waiting-model': 'Wait for model response',
   'validating-response': 'Validate model response',
 });

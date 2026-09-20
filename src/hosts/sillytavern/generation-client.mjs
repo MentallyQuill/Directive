@@ -230,6 +230,7 @@ export function createSillyTavernGenerationClient({
 
   return {
     id: 'sillytavern-generation-client',
+    getRequestCapacity: roleId => providerClient?.getRequestCapacity?.(roleId) ?? null,
     supportsIndependentBackgroundRequests: typeof providerClient?.generate === 'function',
     async generateNarration(request = {}) {
       return withGenerationOwnership(OWNED_GENERATION_DEPTH_KEY, async () => {

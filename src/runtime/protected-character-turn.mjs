@@ -1,3 +1,6 @@
+import { prepareCharacterAudienceInput } from './character-audience-preparation.mjs';
+import { createCharacterAudienceReviewer } from '../story/character-audience-reviewer.mjs';
+import { captureV1StorySource } from './v1-accepted-pair-source.mjs';
 import { createCharacterSceneDiagnostics } from './character-scene-diagnostics.mjs';
 import { createCharacterRuntimeSnapshot } from './character-runtime-snapshot.mjs';
 import { createCharacterSceneCoordinator } from './character-scene-coordinator.mjs';
@@ -13,8 +16,15 @@ import { assertGenerationActive } from './generation-cancellation.mjs';
  * supplies the existing serialized host publication operation to publish(). */
 export async function prepareProtectedCharacterTurn({ generation, campaignState, crewDataset, messages,
   sourcePair, admission, sourceContributionIds = [], identity, guard, publicationId, expectedBinding,
-  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, scenePolicy = null, limits = {}, onPhase, onAttempt, onDiagnostics } = {}) {
+  hostMessageId = null, requireEmpty = false, signal, settings, pacing = null, continuation = null, scenePolicy = null, limits = {}, analysisLimits = {}, onPhase, onAttempt, onDiagnostics } = {}) {
   assertGenerationActive(signal);
+  sourcePair = Object.fromEntries(Object.entries(sourcePair).map(([slot, source]) => {
+    const matches = messages.map(message => captureV1StorySource(message)).filter(result => result.ok && result.value.messageId === source.messageId);
+    if (matches.length === 1 && matches[0].value.selectedSwipeId === source.selectedSwipeId && matches[0].value.textHash === source.textHash) {
+      return [slot, { ...source, text: matches[0].value.text }];
+    }
+    return [slot, source];
+  }));
   continuation = parseCharacterContinuation(continuation, sourcePair);
   if (!guard?.isCurrent?.()) throw Object.assign(new Error('Protected turn is stale.'), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
   const snapshot = createCharacterRuntimeSnapshot({ campaignState, crewDataset, messages, currentSourceIds: sourceContributionIds });
@@ -25,7 +35,7 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
     constraints: scenePolicy?.constraints || [], visiblePersonIds: [...new Set([admission.playerId, ...admitted.participants.flatMap(person => [person.personId, ...person.audience.map(route => route.personId)])])] };
   const trace = createCharacterSceneDiagnostics({ identity, publicationId, onUpdate: onDiagnostics });
   const phase = value => { trace.phase(value); try { onPhase?.(value); } catch {} };
-  const measuredGeneration = { async generate(roleId, request, options) {
+  const measuredGeneration = { getRequestCapacity: roleId => generation.getRequestCapacity?.(roleId) ?? null, async generate(roleId, request, options) {
     const started = performance.now();
     try {
       const result = await generation.generate(roleId, request, options);
@@ -34,12 +44,23 @@ export async function prepareProtectedCharacterTurn({ generation, campaignState,
       return result;
     } catch (error) { trace.response({ roleId, durationMs: performance.now() - started, errorCode: error?.code || 'generation-failed' }); throw error; }
   } };
-  const budget = createTurnAttemptBudget({ limit: limits.maxAttempts ?? 10, signal, onClaim: used => { trace.attempt(used); try { onAttempt?.(used); } catch {} } });
-  let flight;
+  const budget = createTurnAttemptBudget({ limit: Math.min(limits.maxAttempts ?? 10, 10), signal, onClaim: used => { trace.attempt(used); try { onAttempt?.(used); } catch {} } });
+  let flight, audienceReservation, finalizationReservations;
   try {
+    const audiencePreparation = prepareCharacterAudienceInput({ snapshot, messages, sourcePair, admission, identity, limits: { ...analysisLimits, ...limits } });
+    if (budget.available < admitted.plan.length + (audiencePreparation.trustedCoverage.complete ? 2 : 3)) {
+      throw Object.assign(new Error('Character turn attempt limit.'), { code: 'DIRECTIVE_TURN_ATTEMPT_LIMIT' });
+    }
+    if (!audiencePreparation.trustedCoverage.complete) audienceReservation = budget.reserve('character-audience', 1);
+    finalizationReservations = { narration: budget.reserve('character-narration', 1), review: budget.reserve('character-review', 1) };
+    phase('audience');
+    const { capability: audienceAdmission } = await createCharacterAudienceReviewer({ generation: measuredGeneration }).review({
+      prepared: audiencePreparation, budget, reservation: audienceReservation, signal, isCurrent: guard.isCurrent, analysisLimits,
+    });
+    budget.release(audienceReservation);
     flight = createCharacterSceneCoordinator({ responder: createCharacterResponder({ generation: measuredGeneration }), limits }).createFlight({
       snapshot, sourcePair, participants: admitted.participants, plan: admitted.plan, playerId: admission.playerId,
-      sceneEvidence: { admission, sourcePair }, identity, budget, signal, isCurrent: guard.isCurrent,
+      sceneEvidence: { admission, sourcePair }, identity, budget, signal, isCurrent: guard.isCurrent, audienceAdmission, audiencePreparation, finalizationReservations,
     });
     const pipeline = createReviewedCharacterScene({ narrator: createCharacterSceneNarrator({ generation: measuredGeneration }), reviewer: createCharacterKnowledgeReviewer({ generation: measuredGeneration }) });
     const approved = await pipeline.generate({ flight, scenePacket, budget, signal, settings, pacing, continuation, onPhase: phase });

@@ -21,7 +21,7 @@ export function prepareCharacterAudienceInput({snapshot,messages,sourcePair,admi
    const slot=slots.find(slot=>same(sourcePair?.[slot],anchor));
    const authored=slot&&sourcePair[slot];
    if(authored && typeof authored.text==='string' && authored.selectedSwipeId===null && authored.textHash===stableSha256Hex(authored.text)
-    && authored.messageId===`authored.opening.${slot}.${authored.textHash.slice(0,24)}`) s=authored;
+    && [slot, slot==='previousAssistant'?'scene':'player'].some(name=>authored.messageId===`authored.opening.${name}.${authored.textHash.slice(0,24)}`)) s=authored;
   }
   if(!same(s,anchor)||typeof s.text!=='string'||!s.text) fail('SOURCE_UNAVAILABLE');
   const value={...identityOf(s),text:s.text}; used.set(digest(identityOf(s)),value); return value;

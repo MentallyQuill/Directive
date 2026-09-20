@@ -27,7 +27,7 @@ async function run({ stopAt = null, mutateAt = null, reject = false, emptyFirst 
     getRequestHeaders: () => ({ 'Content-Type': 'application/json' }), addOneMessage: async () => {}, updateMessage: async () => {},
     saveChat: async () => { saved = structuredClone(context.chat); if (failSave) { failSave = false; throw new Error('uncertain save'); } },
     fetch: async () => ({ ok: true, json: async () => [{ chat_metadata: { directiveCampaignBinding: structuredClone(binding) } }, ...structuredClone(saved)] }),
-    getPresetManager: () => ({ getCompletionPresetByName: () => ({ messages: ['CANARY_PRESET'] }) }),
+    getPresetManager: () => ({ getCompletionPresetByName: () => ({ messages: ['CANARY_PRESET'], openai_max_context: 131072 }) }),
     ChatCompletionService: { TYPE: 'openai', presetToGeneratePayload() { throw new Error('Preset projection is forbidden'); } },
     generateRaw() { throw new Error('Native fallback is forbidden'); },
     ConnectionManagerRequestService: {
@@ -37,12 +37,14 @@ async function run({ stopAt = null, mutateAt = null, reject = false, emptyFirst 
         assert.equal(options.includePreset, false); assert.equal(options.includeInstruct, false); assert.equal(options.stream, false);
         assert.ok(!JSON.stringify(calls.at(-1)).includes('CANARY_'));
         const input = JSON.parse(messages[1].content);
-        const phase = profileId === 'narrator' && reviews > 0 ? 'repair' : profileId;
+        const phase = input.manifest ? 'audience' : profileId === 'narrator' && reviews > 0 ? 'repair' : profileId;
         if (phase === stopAt) stop.abort();
         if (phase === mutateAt) identity = { ...identity, settingsDigest: 'c'.repeat(64) };
-        if (emptyFirst && first) { first = false; return { choices: [{ message: { content: '', reasoning_content: 'private reasoning' }, finish_reason: 'stop' }] }; }
+        if (!input.manifest && emptyFirst && first) { first = false; return { choices: [{ message: { content: '', reasoning_content: 'private reasoning' }, finish_reason: 'stop' }] }; }
         let result;
-        if (profileId === 'actor') {
+        if (input.manifest) {
+          result = { kind: 'directive.characterAudienceReview.v1', manifestDigest: input.manifestDigest, evidenceDigest: input.evidenceDigest, identityDigest: input.identityDigest, verdict: 'pass', checkedEntryIds: input.manifest.entries.map(e=>e.id), findings: [] };
+        } else if (profileId === 'actor') {
           assert.equal(input.packet.personId, actorId);
           const p = input.schema.properties;
           result = { id: p.id.const, personId: actorId, kind: 'speech', mode: 'ordinary', text: 'Ready.', basisIds: [], recipientIds: p.recipientIds.items.enum, dependsOnIds: [] };
@@ -98,10 +100,10 @@ async function run({ stopAt = null, mutateAt = null, reject = false, emptyFirst 
   }
   return { calls, failure, traces };
 }
-assert.equal((await run()).calls.length, 3);
-assert.equal((await run({ emptyFirst: true })).calls.length, 4);
-for (const stopAt of ['actor', 'narrator', 'reviewer', 'repair']) await run({ stopAt, reject: stopAt === 'repair' });
+assert.equal((await run()).calls.length, 4);
+assert.equal((await run({ emptyFirst: true })).calls.length, 5);
+for (const stopAt of ['audience', 'actor', 'narrator', 'reviewer', 'repair']) await run({ stopAt, reject: stopAt === 'repair' });
 for (const mutateAt of ['actor', 'narrator', 'reviewer']) await run({ mutateAt });
-assert.equal((await run({ reject: true })).calls.length, 5, 'one repair and whole-candidate re-review');
+assert.equal((await run({ reject: true })).calls.length, 6, 'one repair and whole-candidate re-review');
 await run({ failSave: true });
 console.log('PASS real host adapters: sealed outbound requests, retries, phase cancellation, stale settings, rejection, saved recovery and reload');

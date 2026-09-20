@@ -398,6 +398,7 @@ export function createDirectiveGenerationRouter(host) {
     return settings ? resolveProviderMaxTokens(settings, providerKind || providerKindForRole(roleId), roleId) : fallback;
   }
   return {
+    getRequestCapacity: roleId => host.generation.getRequestCapacity?.(roleId) ?? null,
     getTimeoutMs,
     getMaxTokens,
     getMaxAttempts(roleId, fallback = 2) {
@@ -856,7 +857,7 @@ export function createDirectiveRuntimeApp({
   let fallbackCharacterKnowledgeSettings = normalizeCharacterKnowledgeSettings();
   const characterKnowledgeSettings = () => normalizeCharacterKnowledgeSettings(getCharacterKnowledgeSettings?.() ?? host.characterKnowledge?.getSettings?.() ?? fallbackCharacterKnowledgeSettings);
   function prepareTrackedCharacterTurn(options, scope) {
-    return turnProgress.run('protected-scene', ({ onAttempt, onPhase }) => prepareProtectedCharacterTurn({ ...options, onAttempt, onPhase,
+    return turnProgress.run('protected-scene', ({ onAttempt, onPhase }) => prepareProtectedCharacterTurn({ ...options, analysisLimits: generationRouter.getAnalysisLimits(), onAttempt, onPhase,
       onDiagnostics: diagnostics => { lastCharacterSceneDiagnostics = diagnostics; } }), { scope });
   }
   function publishTrackedCharacterScene(task, owner, scope) {

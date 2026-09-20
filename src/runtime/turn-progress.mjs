@@ -13,7 +13,7 @@ export const TURN_PROGRESS_STAGES = Object.freeze([
 ]);
 
 const STAGES = new Set(TURN_PROGRESS_STAGES);
-const PHASES = new Set(['waiting-model', 'validating-response', 'characters', 'narration', 'review', 'repair', 'publication']);
+const PHASES = new Set(['waiting-model', 'validating-response', 'audience', 'characters', 'narration', 'review', 'repair', 'publication']);
 const CANCELED_REASON_CODES = new Set([
   'provider-aborted',
   'director-aborted',

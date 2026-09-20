@@ -1,3 +1,6 @@
+import { makeAudienceFixture } from './character-audience-test-fixtures.mjs';
+import { admitCoordinatorFixture } from './character-audience-coordinator-fixtures.mjs';
+import { materializeCharacterSceneAdmission } from '../../src/story/character-scene-admission.mjs';
 import assert from 'node:assert/strict';
 import * as knowledge from '../../src/story/character-knowledge.mjs';
 
@@ -160,16 +163,18 @@ assert.ok(new TextEncoder().encode(JSON.stringify(unicodePacket.packet)).length 
 const { createCharacterSceneCoordinator } = await import('../../src/runtime/character-scene-coordinator.mjs');
 const { createTurnAttemptBudget } = await import('../../src/generation/turn-attempt-budget.mjs');
 const latePackets = [], longSpeech = 'An engineering report. '.repeat(120);
-const lateFlight = createCharacterSceneCoordinator({ responder: { async respond(input) {
-  input.budget.claim(); latePackets.push(input.packet);
-  return { contribution: { id: input.contributionId, personId: 'person.bronn', kind: 'speech', mode: 'ordinary', text: longSpeech, basisIds: [], recipientIds: ['person.player'], dependsOnIds: [...input.priorContributionIds] } };
-} } }).createFlight({ snapshot: longSnapshot, playerId: 'person.player', participants: [{ personId: 'person.bronn', present: true, conscious: true, audience: [{ personId: 'person.player', acquisition: 'heard' }] }], plan: [{ id: 'line.first', personId: 'person.bronn', dependsOnIds: [] }, { id: 'line.second', personId: 'person.bronn', dependsOnIds: ['line.first'] }], identity: { bindingKey: 'test', branchId: 'save.test', sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 }, budget: createTurnAttemptBudget(), isCurrent: () => true });
-await lateFlight.run();
-assert.equal(latePackets.length, 2);
-assert.ok(latePackets[1].information.some(item => item.text === longSpeech));
-assert.ok(latePackets[1].information.some(item => item.id === 'fact.long.0'));
+const lateFixture = makeAudienceFixture();
+lateFixture.admission.proposal.reactions = [{personId:'priya-nayar',after:[]},{personId:'priya-nayar',after:[0]}];
+const lateScene = materializeCharacterSceneAdmission(lateFixture.admission,{sourcePair:lateFixture.sourcePair,knownPersonIds:new Set(lateFixture.snapshot.characters.keys())});
+const lateArgs = admitCoordinatorFixture({...lateFixture,...lateScene,sceneEvidence:{admission:lateFixture.admission,sourcePair:lateFixture.sourcePair},playerId:lateFixture.admission.playerId,identity:{bindingKey:'test',branchId:'save.archive-audit',sourceDigest:'a'.repeat(64),settingsDigest:'b'.repeat(64),epoch:1},budget:createTurnAttemptBudget(),isCurrent:()=>true});
+const lateFlight = createCharacterSceneCoordinator({limits:{maxCharacters:2200},responder:{async respond(input){
+ input.budget.claim();latePackets.push(input.packet);
+ return {contribution:{id:input.contributionId,personId:input.packet.personId,kind:'speech',mode:'ordinary',text:longSpeech,basisIds:[],recipientIds:[lateFixture.admission.playerId],dependsOnIds:[...input.priorContributionIds]}};
+}}}).createFlight(lateArgs);
+await assert.rejects(lateFlight.run(),{code:'DIRECTIVE_CHARACTER_KNOWLEDGE_BUDGET'});
+assert.equal(latePackets.length,1,'required causal contribution cannot silently evict frozen archive knowledge');
 lateFlight.dispose();
-console.log('PASS budgeted archive retrieval retains required facts and causal context');
+console.log('PASS frozen archive selection rejects required causal context overflow');
 
 const leakedProvisional = structuredClone(provisional);
 leakedProvisional.event.payload.text = 'Public question plus unseen private 22:43 update.';

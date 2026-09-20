@@ -198,3 +198,11 @@ export function makeAudienceFixture() {
  const snapshot={state:{storySettlement:{branchId:'save.archive-audit',revision:1,continuityEvents:structuredClone(events),acceptedPairReceipts:[createV1AcceptedPairReceipt({branchId:'save.archive-audit',sourceRangeHash:'pair.audit',sourcePair,assistantAcceptance:'accepted',sourceContributionIds:['audit.source.current']})]}},sourceIdentities:new Map(events.flatMap(e=>e.sourceContributionIds.map((id,i)=>[id,e.sources[i]]))),characters:new Map([['priya-nayar',{name:'Priya Nayar',role:'Operations Officer'}],['mara-whitaker',{name:'Mara Whitaker',role:'Captain'}]])};
  return {snapshot,messages,sourcePair,admission:structuredClone(preserved.admission),identity:{chatId:'chat.audit',saveId:'save.archive-audit',branchId:'save.archive-audit',stateRevision:1,generationEpoch:1,settingsDigest:'settings.audit'},limits:{requestContextCharacters:48000}};
 }
+
+// Provider-boundary fixtures emit the full digest-bound contract, never a gate bypass.
+export const audienceTestCapacity = () => ({routeFingerprint:'fixture.utility',contextTokens:262144,outputTokens:4096,unit:'tokens',provenance:'profile-preset',actualContextTokens:null});
+export function audienceTestResponse(request, options, verdict='pass') {
+ options.attemptBudget.claim({reservation:options.attemptReservation??null});
+ const input=JSON.parse(request.messages[1].content);
+ return {text:JSON.stringify({kind:'directive.characterAudienceReview.v1',manifestDigest:input.manifestDigest,evidenceDigest:input.evidenceDigest,identityDigest:input.identityDigest,verdict,checkedEntryIds:input.manifest.entries.map(e=>e.id),findings:verdict==='pass'?[]:[{entryId:input.manifest.entries[0].id,reason:'Unsupported recipient.'}]})};
+}

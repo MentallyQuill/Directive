@@ -1,3 +1,4 @@
+import { audienceTestCapacity, audienceTestResponse } from './character-audience-test-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { createFakeDirectiveHost, createFakeGenerationClient } from '../../src/hosts/fake/fake-host.mjs';
@@ -5,12 +6,15 @@ import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 import { captureAcceptedPairAnalysis } from '../../src/runtime/v1-mission-runtime.mjs';
 import { prepareV1AcceptedPairSnapshot, captureV1StorySource } from '../../src/runtime/v1-accepted-pair-source.mjs';
 let sequence = 0, calls = 0, directors = 0, legacy = 0, mutateThenFail = true, stopDuringPublish = false, stopBeforeNarration = false, editDuringDirector = false;
+let audienceCalls = 0;
 const generation = createFakeGenerationClient({ responses: {
+ characterAudienceReviewer: ({ request, rawOptions }) => { audienceCalls++; return audienceTestResponse(request, rawOptions); },
  openingSceneDirector: async ({ request }) => { directors++; if (editDuringDirector) { editDuringDirector = false; host.chat.pushPlayerMessage({ text: 'I change the opening source.' }); } const context = JSON.parse(request.messages.at(-1).content); return { text: JSON.stringify({ kind: 'directive.openingDirection.v1', sceneMaterialIds: context.sceneReferences.map(item => item.id).slice(0,1), backgroundIds: context.backgroundReferences.map(item => item.id).slice(0,1), emphasis: 'setting', characterScene: { participants: [], reactions: [], playerContext: [{ sourceSlot: 'previousAssistant', evidenceQuote: context.premise.firstPlayableScene.slice(0, 320) }] } }) }; },
  sceneNarrator: async ({ request, rawOptions }) => { if (stopBeforeNarration) { stopBeforeNarration = false; await app.handleHostGenerationStopped(); } calls++; rawOptions.attemptBudget.claim(); const packet = JSON.parse(request.messages[1].content); assert.ok(!JSON.stringify(packet).includes('PRIVATE_UNSHARED_MEMORY')); return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.opening', text: 'The arrival deck is quiet.' }] }) }; },
  characterKnowledgeReviewer: async ({ request, rawOptions }) => { calls++; rawOptions.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content); return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [] }) }; },
 } });
 generation.generateNarration = async () => { legacy++; throw new Error('Unrestricted opening route'); };
+generation.getRequestCapacity = audienceTestCapacity;
 const host = createFakeDirectiveHost({ chatNative: true, generation });
 const app = createDirectiveRuntimeApp({ host, packageLoader: async () => loadAshesRuntimeAssets(), idFactory: prefix => `${prefix}.${++sequence}`, getCharacterKnowledgeSettings: () => true ? { mode: 'protected' } : null });
 await app.initialize(); await app.startCreatorDraft();
@@ -49,6 +53,7 @@ const started = await app.acceptCreatorDraftAndStartCampaign();
 assert.equal(started.opening.ok, false, JSON.stringify(started.opening));
 assert.equal(started.opening.error.code, 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING');
 assert.equal(calls, 2);
+assert.equal(audienceCalls, 1);
 assert.equal(directors, 1);
 assert.equal(host.chat.messages().length, 1);
 assert.equal(legacy, 0);
@@ -59,6 +64,7 @@ assert.equal(recovered.ok, true, JSON.stringify(recovered));
 assert.equal(recovered.duplicate, true);
 assert.equal(host.chat.messages().length, 1);
 assert.equal(calls, 2);
+assert.equal(audienceCalls, 1);
 assert.equal(directors, 1);
 assert.equal(legacy, 0);
 assert.deepEqual(recovered.view.campaignState, stateBeforeRetry, 'opening publication never commits campaign outcomes');
@@ -75,10 +81,13 @@ console.log('PASS protected opening retains the authored time baseline on first 
 
 host.chat.setMessagesForChat(host.chat.getCurrentChatId(), []);
 stopBeforeNarration = true;
+const audienceBeforeStop = audienceCalls;
 const stopped = await app.retryOpening();
+assert.equal(audienceCalls, audienceBeforeStop + 1);
 assert.equal(stopped.ok, false);
 assert.equal(host.chat.messages().length, 0, 'Stop before review never publishes an opening');
 const retryStopped = await app.retryOpening();
+assert.equal(audienceCalls, audienceBeforeStop + 2, 'explicit Retry starts fresh audience admission');
 assert.equal(retryStopped.ok, true, JSON.stringify(retryStopped));
 assert.equal(host.chat.messages().length, 1);
 assert.equal(legacy, 0);

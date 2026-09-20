@@ -1,3 +1,4 @@
+import { admitCoordinatorFixture } from './character-audience-coordinator-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { createCharacterKnowledgeReviewer, createReviewedCharacterScene } from '../../src/story/character-knowledge-reviewer.mjs';
 import { createCharacterSceneNarrator, characterNarrativeDigest } from '../../src/narration/character-scene-narrator.mjs';
@@ -12,7 +13,7 @@ const requests = [];
 const generation = { async generate(role, request, options) {
   options.attemptBudget.claim(); requests.push({ role, request });
   const input = JSON.parse(request.messages[1].content);
-  if (role === 'sceneNarrator') { narrationCalls++; return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'Bronn had known about the three-minute deadline all along.' }, { kind: 'character', id: 'line.a' }] }) }; }
+  if (role === 'sceneNarrator') { narrationCalls++; return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'Bronn had known about the three-minute deadline all along.' }, { kind: 'character', id: actorId }] }) }; }
   reviewCalls++;
   const finding = { id: 'finding.1', segmentId: 'segment.1', subjectId: 'person.a', type: 'unsupported-knowledge', explanation: 'SECRET_REVIEW_CONTENT', supportIds: [] };
   return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest,
@@ -22,9 +23,12 @@ const coordinator = createCharacterSceneCoordinator({ responder: { async respond
   actorCalls++; input.budget.claim();
   return { contribution: { id: input.contributionId, personId: input.packet.personId, kind: 'speech', mode: 'ordinary', text: 'Ready.', basisIds: [], recipientIds: ['person.player'], dependsOnIds: [] } };
 } } });
-const makeFlight = budget => coordinator.createFlight({ snapshot, identity, playerId: 'person.player', budget, isCurrent: () => true,
+const fixture = admitCoordinatorFixture({ snapshot, identity, playerId: 'person.player', isCurrent: () => true,
   participants: [{ personId: 'person.a', present: true, conscious: true, audience: [{ personId: 'person.player', acquisition: 'heard' }] }],
   plan: [{ id: 'line.a', personId: 'person.a', dependsOnIds: [] }] });
+const actorId = fixture.plan[0].id;
+scene.information = fixture.playerInformation;
+const makeFlight = budget => coordinator.createFlight({ ...fixture, budget });
 const narrator = createCharacterSceneNarrator({ generation });
 const reviewer = createCharacterKnowledgeReviewer({ generation });
 const budget = createTurnAttemptBudget();
@@ -64,7 +68,7 @@ const actorReviewer = createCharacterKnowledgeReviewer({ generation: { async gen
   options.attemptBudget.claim(); actorReviewCount++;
   const input = JSON.parse(request.messages[1].content);
   return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest,
-    verdict: actorReviewCount === 1 ? 'reject' : 'pass', findings: actorReviewCount === 1 ? [{ id: 'finding.actor', segmentId: 'line.a', subjectId: 'person.a', type: 'unsupported-inference', explanation: 'SECRET_ACTOR_FEEDBACK', supportIds: [] }] : [] }) };
+    verdict: actorReviewCount === 1 ? 'reject' : 'pass', findings: actorReviewCount === 1 ? [{ id: 'finding.actor', segmentId: actorId, subjectId: 'person.a', type: 'unsupported-inference', explanation: 'SECRET_ACTOR_FEEDBACK', supportIds: [] }] : [] }) };
 } } });
 actorCalls = 0;
 const actorBudget = createTurnAttemptBudget();

@@ -1,3 +1,4 @@
+import { audienceTestCapacity, audienceTestResponse } from './character-audience-test-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { prepareProtectedCharacterTurn } from '../../src/runtime/protected-character-turn.mjs';
 import { createCharacterSceneAdmission } from '../../src/story/character-scene-admission.mjs';
@@ -12,7 +13,8 @@ const before = structuredClone(state);
 const identity = { bindingKey: 'chat.test', branchId: 'save.test', sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 };
 let current = true, calls = 0;
 const guard = createCharacterPublicationGuard({ publicationId: 'publication.turn', identity, baselineRows: messages, readRows: () => messages, readIdentity: () => current ? identity : null });
-const generation = { async generate(role, request, options) {
+const generation = { getRequestCapacity: audienceTestCapacity, async generate(role, request, options) {
+  if (role === 'characterAudienceReviewer') return audienceTestResponse(request, options);
   calls++; options.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content);
   if (role === 'sceneNarrator') return { usage: { input_tokens: 12, output_tokens: 5, total_tokens: 17 }, text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The quiet holds.' }] }) };
   assert.equal(role, 'characterKnowledgeReviewer');
@@ -26,11 +28,11 @@ const publish = async options => { publicationAttempts++; assert.equal(options.t
 await assert.rejects(turn.publish(publish), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' });
 assert.equal((await turn.publish(publish)).persisted, true);
 assert.equal(calls, 2, 'uncertain publication retry does not regenerate or review');
-assert.equal(turn.attempts, 2);
+assert.equal(turn.attempts, 3);
 assert.equal(turn.diagnostics.outcome, 'complete');
-assert.equal(turn.diagnostics.attempts, 2);
-assert.deepEqual(turn.diagnostics.roleCalls[0].tokens, { input: 12, output: 5, total: 17 });
-assert.equal(turn.diagnostics.roleCalls[1].tokens.total, null);
+assert.equal(turn.diagnostics.attempts, 3);
+assert.deepEqual(turn.diagnostics.roleCalls[1].tokens, { input: 12, output: 5, total: 17 });
+assert.equal(turn.diagnostics.roleCalls[2].tokens.total, null);
 assert.equal(turn.diagnostics.tokenUsageComplete, false);
 assert.ok(turn.diagnostics.phases.some(item => item.phase === 'publication'));
 assert.ok(!JSON.stringify(turn.diagnostics).includes('The quiet holds.'));

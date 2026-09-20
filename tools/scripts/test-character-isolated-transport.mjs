@@ -146,3 +146,17 @@ assert.deepEqual(settingsStore.get('utility'), savedUtility, 'isolation must not
 await assert.rejects(fallback.generate('characterAudienceReviewer', isolated), { code: 'DIRECTIVE_CONTEXT_ISOLATION' });
 await assert.rejects(client.generate('characterAudienceReviewer', isolated, { providerKind: 'reasoning', attemptBudget: createTurnAttemptBudget() }), { code: 'DIRECTIVE_CONTEXT_ISOLATION' });
 console.log('PASS audience review is isolated Utility with one physical send across failure, cancellation and caller retry overrides');
+// Capacity is selected-route metadata, never the active UI context window.
+context.maxContext = 999999;
+context.chatCompletionSettings = { openai_max_context: 999999 };
+context.getPresetManager = type => ({ getCompletionPresetByName: name => name === 'SECRET_PRESET' ? { openai_max_context: 32768 } : null });
+const capacity = client.getRequestCapacity('characterAudienceReviewer');
+assert.equal(capacity.contextTokens, 32768);
+assert.equal(capacity.provenance, 'profile-preset');
+assert.equal(capacity.actualContextTokens, null);
+assert.ok(capacity.outputTokens > 0);
+context.getPresetManager = () => ({ getCompletionPresetByName: () => null });
+assert.equal(client.getRequestCapacity('characterAudienceReviewer').contextTokens, null);
+assert.notEqual(client.getRequestCapacity('characterAudienceReviewer').routeFingerprint, capacity.routeFingerprint);
+const capacityBridge = createSillyTavernGenerationClient({contextFactory:()=>context,providerClient:client});
+assert.deepEqual(capacityBridge.getRequestCapacity('characterAudienceReviewer'),client.getRequestCapacity('characterAudienceReviewer'));

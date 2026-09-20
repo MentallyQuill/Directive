@@ -2,6 +2,10 @@ import { spawnSync } from 'node:child_process';
 
 const checks = [
   "test-character-knowledge-contracts.mjs",
+  "test-character-audience-admission.mjs",
+  "test-character-audience-preparation.mjs",
+  "test-character-audience-reviewer.mjs",
+  "test-character-audience-runtime.mjs",
   "test-character-knowledge-packets.mjs",
   "test-evidence-passages.mjs",
   "test-character-isolated-transport.mjs",

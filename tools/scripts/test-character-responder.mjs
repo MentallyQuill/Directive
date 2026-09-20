@@ -83,6 +83,10 @@ for (const routes of [new Map(), new Map([['person.player', 'visual']]), new Map
   await assert.rejects(noTransport.respond({ ...args, audienceAcquisitions: routes }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
 }
 console.log('PASS admitted response channels constrain action recipients without remote visual access');
-channelAnswer = { ...base, text: 'The written reply says: Ready.' };
-assert.equal((await channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'read']]) })).contribution.kind, 'speech');
+channelAnswer = { ...base, kind: 'message', text: 'Ready.' };
+assert.equal((await channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'read']]) })).contribution.kind, 'message');
+channelAnswer = { ...base };
+await assert.rejects(channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'read']]) }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+channelAnswer = { ...base, kind: 'message' };
+await assert.rejects(channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'heard']]) }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
 console.log('PASS quoted written content retains read route without granting physical action access');

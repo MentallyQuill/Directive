@@ -1,3 +1,5 @@
+import { admitCoordinatorFixture } from './character-audience-coordinator-fixtures.mjs';
+import { captureV1StorySource } from '../../src/runtime/v1-accepted-pair-source.mjs';
 import assert from 'node:assert/strict';
 import { createCharacterSceneAdmission, materializeCharacterSceneAdmission } from '../../src/story/character-scene-admission.mjs';
 import { createCharacterSceneCoordinator } from '../../src/runtime/character-scene-coordinator.mjs';
@@ -5,6 +7,7 @@ import { createCharacterReviewInput } from '../../src/story/character-knowledge-
 import { characterNarrativeDigest } from '../../src/narration/character-scene-narrator.mjs';
 import { createTurnAttemptBudget } from '../../src/generation/turn-attempt-budget.mjs';
 const sourcePair = { previousAssistant: { messageId: 'a1', selectedSwipeId: '0', textHash: '12345678', text: 'The bridge is empty.' }, currentPlayer: { messageId: 'u2', selectedSwipeId: null, textHash: '87654321', text: 'I wait by the console.' } };
+for (const [slot, source] of Object.entries(sourcePair)) source.textHash = captureV1StorySource({id:source.messageId,mes:source.text,is_user:slot==='currentPlayer',swipe_id:0,swipes:[source.text]}).value.textHash;
 const proposal = { participants: [], reactions: [], playerContext: [{ sourceSlot: 'currentPlayer', evidenceQuote: sourcePair.currentPlayer.text }] };
 const admission = createCharacterSceneAdmission({ proposal, sourcePair, playerId: 'person.player', knownPersonIds: new Set() });
 const sceneEvidence = { admission, sourcePair };
@@ -13,7 +16,7 @@ const scene = { kind: 'directive.playerScenePacket.v1', player: { personId: 'per
 const snapshot = { state: { storySettlement: { branchId: 'save.test', revision: 1, continuityEvents: [] } }, sourceIdentities: new Map(), characters: new Map() };
 const coordinator = createCharacterSceneCoordinator({ responder: { respond() { throw new Error('no actors'); } } });
 const args = { snapshot, sourcePair, sceneEvidence, ...materialized, playerId: 'person.player', identity: { bindingKey: 'chat.test', branchId: 'save.test', sourceDigest: 'a'.repeat(64), settingsDigest: 'b'.repeat(64), epoch: 1 }, budget: createTurnAttemptBudget(), isCurrent: () => true };
-const flight = coordinator.createFlight(args);
+const flight = coordinator.createFlight(admitCoordinatorFixture(args));
 const draft = await flight.run();
 assert.deepEqual(draft.sceneEvidence, sceneEvidence);
 const segments = [{ kind: 'prose', id: 'segment.1', text: 'The console remains quiet.' }];

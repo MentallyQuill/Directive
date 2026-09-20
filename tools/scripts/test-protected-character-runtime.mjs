@@ -1,3 +1,4 @@
+import { audienceTestCapacity, audienceTestResponse } from './character-audience-test-fixtures.mjs';
 import assert from 'node:assert/strict';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { createFakeDirectiveHost, createFakeGenerationClient } from '../../src/hosts/fake/fake-host.mjs';
@@ -6,7 +7,9 @@ const defaults = createFakeGenerationClient();
 let enabled = false, sequence = 0, protectedCalls = 0, published = 0;
 const sceneOnlySources = [];
 let mutateSceneSource = false, mutateRetryPrefix = false, mutateRoute = false, routeFingerprint = 'route.original';
+let audienceCalls = 0;
 const generation = createFakeGenerationClient({ responses: {
+ characterAudienceReviewer: ({ request, rawOptions }) => { audienceCalls++; return audienceTestResponse(request, rawOptions); },
   acceptedPairMissionEvidence: async () => ({ text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true, time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 } }) }),
   continuityAnalyst: async ({ request }) => {
     const context = JSON.parse(request.messages[1].content);
@@ -31,6 +34,7 @@ const generation = createFakeGenerationClient({ responses: {
   sceneNarrator: async ({ rawOptions }) => { if (mutateRoute) { mutateRoute = false; routeFingerprint = 'route.changed'; } protectedCalls++; rawOptions.attemptBudget.claim(); return { text: JSON.stringify({ segments: [{ kind: 'prose', id: 'segment.1', text: 'The console remains quiet.' }] }) }; },
   characterKnowledgeReviewer: async ({ request, rawOptions }) => { protectedCalls++; rawOptions.attemptBudget.claim(); const input = JSON.parse(request.messages[1].content); return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [] }) }; },
 } });
+generation.getRequestCapacity = audienceTestCapacity;
 const host = createFakeDirectiveHost({ chatNative: true, generation });
 host.chat.publishProtectedScene = async () => { published++; throw Object.assign(new Error('Synthetic save failure before mutation'), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' }); };
 host.providers.configurationFingerprint = () => routeFingerprint;
@@ -55,9 +59,11 @@ assert.equal(first.responseStrategy, 'blockAndRetry');
 assert.equal(first.settlementError.reasonCode, 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING');
 assert.equal(protectedCalls, 2);
 assert.equal(published, 1);
+assert.equal(audienceCalls, 1, 'normal enters audience gate');
 const second = await orchestrator.interceptGeneration({ type: 'normal' });
 assert.equal(second.abortDefaultGeneration, true);
 assert.equal(published, 2);
+assert.equal(audienceCalls, 1, 'publication-only recovery does not repeat audience generation');
 assert.equal(protectedCalls, 2, 'pending save retries reuse the exact reviewed candidate');
 console.log('PASS native protected interception suppresses default output and retains publication-only recovery');
 import { captureV1StorySource } from '../../src/runtime/v1-accepted-pair-source.mjs';
@@ -165,7 +171,9 @@ assert.equal(host.chat.messages().at(-1).swipes.length, beforeSwipe.at(-1).swipe
 assert.deepEqual((await app.getCurrentView({ tabId: 'mission' })).campaignState.storySettlement.acceptedPairReceipts, receiptsBeforeReplacement, 'replacement preserves the original accepting player and its receipt');
 const beforeContinue = host.chat.messages();
 const continuedSource = beforeContinue.at(-1);
+const audienceBeforecontinued = audienceCalls;
 const continued = await orchestrator.interceptGeneration({ type: 'continue' });
+assert.equal(audienceCalls, audienceBeforecontinued + 1, 'continued gets fresh audience receipt');
 assert.equal(continued.responseStrategy, 'protectedScenePublished', JSON.stringify(continued));
 assert.equal(host.chat.messages().length, beforeContinue.length);
 const afterContinue = host.chat.messages().at(-1);
@@ -203,7 +211,9 @@ host.chat.getGenerationActivity = () => ({ status: 'active', replyStatus: 'activ
 app.handleHostGenerationStarted({ type: 'regenerate' });
 host.chat.setMessagesForChat(host.chat.getCurrentChatId(), beforeRegenerate.slice(0, -1));
 await app.handleHostMessageDeleted({ hostMessageId: beforeRegenerate.at(-1).id });
+const audienceBeforeregenerated = audienceCalls;
 const regenerated = await orchestrator.interceptGeneration({ type: 'regenerate' });
+assert.equal(audienceCalls, audienceBeforeregenerated + 1, 'regenerated gets fresh audience receipt');
 host.chat.getGenerationActivity = originalGenerationActivity;
 delete host.chat.prepareProtectedGeneration;
 assert.equal(regenerated.responseStrategy, 'protectedScenePublished', JSON.stringify(regenerated));
