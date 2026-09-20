@@ -38,17 +38,29 @@ export function prepareCharacterAudienceInput({snapshot,messages,sourcePair,admi
  function sceneRefs(evidence) { return evidence.flatMap(e=>refs({...sourcePair[e.sourceSlot],evidenceQuote:e.evidenceQuote})); }
  const personIds=[...new Set(scene.plan.map(n=>n.personId))];
  const allEvents=[...snapshot.state.storySettlement.continuityEvents,...provisionalExposures.map(e=>e.event)];
+ const persistedIds = new Set(snapshot.state.storySettlement.continuityEvents.map(event => event.id));
+ const provisionalIds = new Set(provisionalExposures.map(entry => entry.event.id));
  function historicalContext(event) {
-  const anchors=[...event.sources,...(event.payload.informationAccess?.audienceSources||[])];
-  for(const anchor of anchors) {
-   resolve(anchor);
-   if(slots.some(slot=>same(sourcePair[slot],anchor))) continue;
-   const candidates=(snapshot.state.storySettlement.acceptedPairReceipts||[]).filter(r=>v1AcceptedPairReceiptMatches(r,{branchId:snapshot.state.storySettlement.branchId,sourceRangeHash:r.sourceRangeHash,sourcePair:r}) && slots.some(slot=>same(r[slot],anchor)) && event.sourceContributionIds.every(id=>r.sourceContributionIds?.includes(id)));
-   const unique=new Map(candidates.map(r=>[digest(slots.map(slot=>identityOf(r[slot]))),r]));
-   if(unique.size!==1) fail('SOURCE_UNAVAILABLE');
-   const [key,receipt]=[...unique][0];
-   pairs.set(key,{receipt:structuredClone(receipt),sourcePair:Object.fromEntries(slots.map(slot=>[slot,resolve(receipt[slot])]))});
+  const anchors = [...event.sources, ...(event.payload.informationAccess?.audienceSources || [])];
+  anchors.forEach(anchor => resolve(anchor));
+  // The existing compiler validates provisional position, source anchors and order.
+  // Only that uncommitted batch has current-pair authority without a receipt.
+  if (!persistedIds.has(event.id) && provisionalIds.has(event.id)) {
+   if (!anchors.every(anchor => slots.some(slot => same(sourcePair[slot], anchor)))) fail('SOURCE_UNAVAILABLE');
+   return;
   }
+  // Persisted grants retain their original complete pair, even when one anchor
+  // overlaps this turn (for example a continuation replaced the other slot).
+  const candidates = (snapshot.state.storySettlement.acceptedPairReceipts || []).filter(receipt =>
+   v1AcceptedPairReceiptMatches(receipt, { branchId: snapshot.state.storySettlement.branchId,
+    sourceRangeHash: receipt.sourceRangeHash, sourcePair: receipt })
+   && event.sourceContributionIds.every(id => receipt.sourceContributionIds?.includes(id))
+   && anchors.every(anchor => slots.some(slot => same(receipt[slot], anchor))));
+  const unique = new Map(candidates.map(receipt => [digest(slots.map(slot => identityOf(receipt[slot]))), receipt]));
+  if (unique.size !== 1) fail('SOURCE_UNAVAILABLE');
+  const [key, receipt] = [...unique][0];
+  pairs.set(key, { receipt: structuredClone(receipt),
+   sourcePair: Object.fromEntries(slots.map(slot => [slot, resolve(receipt[slot])])) });
  }
   function includeEventContext(event, visiting=new Set()) {
   if(selectedEvents.has(event.id)) return;

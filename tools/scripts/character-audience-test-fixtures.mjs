@@ -1,3 +1,4 @@
+import { createV1AcceptedPairReceipt } from '../../src/runtime/v1-accepted-pair-receipt.mjs';
 import { materializeContinuityChanges } from '../../src/story/continuity-events.mjs';
 const preserved = {
   "admission": {
@@ -194,6 +195,6 @@ const events = await materializeContinuityChanges({changes:preserved.changes,sou
 export function makeAudienceFixture() {
  const sourcePair=structuredClone(preserved.sourcePair);
  const messages=Object.values(sourcePair).map((s,i)=>({id:s.messageId,mes:s.text,is_user:i===1,...(i===0?{swipe_id:0,swipes:[s.text]}:{})}));
- const snapshot={state:{storySettlement:{branchId:'save.archive-audit',revision:1,continuityEvents:structuredClone(events),acceptedPairReceipts:[]}},sourceIdentities:new Map(events.flatMap(e=>e.sourceContributionIds.map((id,i)=>[id,e.sources[i]]))),characters:new Map([['priya-nayar',{name:'Priya Nayar',role:'Operations Officer'}],['mara-whitaker',{name:'Mara Whitaker',role:'Captain'}]])};
+ const snapshot={state:{storySettlement:{branchId:'save.archive-audit',revision:1,continuityEvents:structuredClone(events),acceptedPairReceipts:[createV1AcceptedPairReceipt({branchId:'save.archive-audit',sourceRangeHash:'pair.audit',sourcePair,assistantAcceptance:'accepted',sourceContributionIds:['audit.source.current']})]}},sourceIdentities:new Map(events.flatMap(e=>e.sourceContributionIds.map((id,i)=>[id,e.sources[i]]))),characters:new Map([['priya-nayar',{name:'Priya Nayar',role:'Operations Officer'}],['mara-whitaker',{name:'Mara Whitaker',role:'Captain'}]])};
  return {snapshot,messages,sourcePair,admission:structuredClone(preserved.admission),identity:{chatId:'chat.audit',saveId:'save.archive-audit',branchId:'save.archive-audit',stateRevision:1,generationEpoch:1,settingsDigest:'settings.audit'},limits:{requestContextCharacters:48000}};
 }
