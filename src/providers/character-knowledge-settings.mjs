@@ -12,7 +12,10 @@ export function validateCharacterKnowledgeSettings(value = {}, { narration, read
   if (value.mode !== undefined && !['legacy', 'protected'].includes(value.mode)) errors.push('Choose Legacy or Protected mode.');
   for (const [key, ceiling] of Object.entries(CHARACTER_KNOWLEDGE_LIMITS)) if (value[key] !== undefined && (!Number.isSafeInteger(value[key]) || value[key] < 1 || value[key] > ceiling)) errors.push(`${key} must be between 1 and ${ceiling}.`);
   const settings = normalizeCharacterKnowledgeSettings(value);
-  if (settings.maxCharacterCalls < settings.maxActors || settings.maxAttempts < settings.maxCharacterCalls + 2) errors.push('Allow at least one response per character and two attempts for narration and review.');
+  const finalizationAttempts = settings.mode === 'protected' ? 3 : 2;
+  if (settings.maxCharacterCalls < settings.maxActors || settings.maxAttempts < settings.maxCharacterCalls + finalizationAttempts) errors.push(settings.mode === 'protected'
+    ? 'Allow at least one response per character and enough attempts for character calls plus audience check, narration and final review.'
+    : 'Allow at least one response per character and two attempts for narration and review.');
   if (settings.mode === 'protected' && (narration?.provider !== 'profile' || !String(narration.profileId || '').trim() || narration.presetMode !== 'isolated' || ready !== true)) errors.push('Select an available isolated Narration connection profile before enabling Protected mode.');
   return { ok: errors.length === 0, settings, errors };
 }

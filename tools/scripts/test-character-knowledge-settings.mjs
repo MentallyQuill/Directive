@@ -7,6 +7,16 @@ const route = { narration: { provider: 'profile', profileId: 'profile.nano', pre
 assert.equal(validateCharacterKnowledgeSettings({ mode: 'protected' }, route).ok, true);
 for (const badRoute of [{}, { ...route, ready: false }, { ...route, narration: { ...route.narration, provider: 'st' } }, { ...route, narration: { ...route.narration, presetMode: 'full-profile' } }]) assert.equal(validateCharacterKnowledgeSettings({ mode: 'protected' }, badRoute).ok, false);
 for (const bad of [{ maxActors: 4 }, { maxRounds: 3 }, { maxAttempts: 11 }, { maxCharacterCalls: 5 }, { maxActors: 0 }, { maxAttempts: 3 }, { mode: 'automatic' }]) assert.equal(validateCharacterKnowledgeSettings(bad, route).ok, false);
+const narrowProtected = { mode: 'protected', maxCharacterCalls: 4, maxAttempts: 6 };
+const infeasible = validateCharacterKnowledgeSettings(narrowProtected, route);
+assert.equal(infeasible.ok, false);
+assert.match(infeasible.errors.join(' '), /character calls.*audience check.*narration.*final review/i);
+assert.equal(validateCharacterKnowledgeSettings({ ...narrowProtected, maxAttempts: 7 }, route).ok, true);
+assert.equal(validateCharacterKnowledgeSettings({ ...narrowProtected, maxAttempts: 10 }, route).ok, true);
+assert.equal(validateCharacterKnowledgeSettings({ ...narrowProtected, maxAttempts: 11 }, route).ok, false);
+assert.equal(validateCharacterKnowledgeSettings({ ...narrowProtected, mode: 'legacy' }, route).ok, true);
+assert.equal(normalizeCharacterKnowledgeSettings(narrowProtected).maxAttempts, 6);
+assert.equal(infeasible.settings.maxAttempts, 6, 'validation cannot raise a saved narrow budget');
 let saves = 0;
 const context = { extensionSettings: { directive: { providers: { utility: { profileId: 'utility.keep' }, reasoning: { profileId: 'reasoning.keep' } }, unrelated: true }, connectionManager: { selectedProfile: 'profile.nano', profiles: [{ id: 'profile.nano', secretRef: 'do-not-touch' }] } }, saveSettingsDebounced() { saves++; } };
 const before = structuredClone(context.extensionSettings);

@@ -1,7 +1,7 @@
 import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 
-export const isProtectedGenerationRole = roleId => ['characterResponder', 'sceneNarrator', 'characterKnowledgeReviewer'].includes(roleId);
+export const isProtectedGenerationRole = roleId => ['characterAudienceReviewer', 'characterResponder', 'sceneNarrator', 'characterKnowledgeReviewer'].includes(roleId);
 
 export function isolationError() {
   const error = new Error('Isolated generation context is invalid.');

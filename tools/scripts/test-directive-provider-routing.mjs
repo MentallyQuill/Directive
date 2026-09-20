@@ -25,6 +25,7 @@ assert.deepEqual(GENERATION_ROLE_IDS, [
   'characterCreatorSectionDraft',
   'characterResponder',
   'sceneNarrator',
+  'characterAudienceReviewer',
   'characterKnowledgeReviewer'
 ]);
 assert.equal(providerKindForRole('openingSceneDirector'), 'reasoning');

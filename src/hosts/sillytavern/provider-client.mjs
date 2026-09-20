@@ -876,6 +876,7 @@ export function createDirectiveProviderClient({
 
   async function generate(roleId, request = {}, options = {}) {
     const protectedRole = isProtectedGenerationRole(roleId);
+    const singleSend = roleId === 'characterAudienceReviewer';
     if (protectedRole) {
       assertIsolatedGenerationRequest(request);
       request = createIsolatedGenerationRequest(request);
@@ -909,6 +910,8 @@ export function createDirectiveProviderClient({
       if (protectedRole && configurationFingerprint(kind) !== pinnedFingerprint) {
         throw providerError('DIRECTIVE_CHARACTER_SCENE_STALE', 'Protected generation configuration changed.');
       }
+      // Enforce at the physical boundary as well as the visible-output loop.
+      if (singleSend && attempt >= 1) throw providerError('DIRECTIVE_TURN_ATTEMPT_LIMIT', 'Audience review allows one physical attempt.');
       options.attemptBudget?.claim({ reservation: options.attemptReservation ?? null });
       attempt += 1;
       try {
@@ -921,7 +924,7 @@ export function createDirectiveProviderClient({
       kind, config, attemptRequest, { ...transportOptions, maxTokens, onAttempt: onTransportAttempt }
     ));
     try {
-      const attempts = options.allowVisibleOutputRetry === false ? 1 : analysisLimits.providerVisibleOutputAttempts;
+      const attempts = singleSend || options.allowVisibleOutputRetry === false ? 1 : analysisLimits.providerVisibleOutputAttempts;
       for (let index = 0; index < attempts; index++) {
         try {
           result = await sendAttempt(index === 0 ? control.request : visibleOutputRetryRequest(control.request), {

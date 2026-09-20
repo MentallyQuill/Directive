@@ -3,7 +3,7 @@ import { createGenerationRoleRegistry } from '../../src/generation/generation-ro
 import { normalizeDirectiveProviderSettings, providerKindForRole, validateDirectiveProviderSettings } from '../../src/providers/directive-provider-settings.mjs';
 
 const registry = createGenerationRoleRegistry();
-for (const [id, lane] of [['characterResponder', 'reasoning'], ['sceneNarrator', 'narration'], ['characterKnowledgeReviewer', 'utility']]) {
+for (const [id, lane] of [['characterResponder', 'reasoning'], ['sceneNarrator', 'narration'], ['characterKnowledgeReviewer', 'utility'], ['characterAudienceReviewer', 'utility']]) {
   const role = registry.get(id);
   assert.equal(role.providerKind, lane);
   assert.equal(role.mayProposeState, false);
@@ -106,3 +106,43 @@ context.ConnectionManagerRequestService.sendRequest = async () => {
 await assert.rejects(client.generate('characterResponder', isolated, { attemptBudget: createTurnAttemptBudget() }), { code: 'DIRECTIVE_CHARACTER_SCENE_STALE' });
 assert.equal(routeSends, 1, 'changed route cannot receive a retry');
 console.log('PASS source changes block physical retry before dispatch');
+
+// Audience admission cannot be continued or retried, even with spare capacity.
+settingsStore.update('utility', { provider: 'profile', profileId: 'protected', presetMode: 'full-profile', instructMode: 'on', samplerMode: 'profile' });
+routeSource = 'nanogpt';
+const savedUtility = structuredClone(settingsStore.get('utility'));
+for (const outcome of ['empty', 'reasoning', 'retryable', 'cancel', 'success']) {
+  for (const reserved of [false, true]) {
+    const controller = new AbortController();
+    const audienceBudget = createTurnAttemptBudget({ limit: 10, signal: controller.signal });
+    const reservation = reserved ? audienceBudget.reserve('audience', 1) : null;
+    const before = calls.length;
+    context.ConnectionManagerRequestService.sendRequest = async (profileId, messages, maxTokens, options, payload) => {
+      calls.push({ profileId, messages, maxTokens, options, payload });
+      if (outcome === 'retryable') throw Object.assign(new Error('temporary service failure'), { status: 503 });
+      if (outcome === 'cancel') controller.abort();
+      return { choices: [{ message: outcome === 'success' ? { content: '{"ok":true}' } : { content: '', ...(outcome === 'reasoning' ? { reasoning_content: 'thinking' } : {}) }, finish_reason: 'stop' }] };
+    };
+    const pending = client.generate('characterAudienceReviewer', isolated, { signal: controller.signal, attemptBudget: audienceBudget, attemptReservation: reservation, allowVisibleOutputRetry: true, maxAttempts: 10 });
+    if (outcome === 'success') {
+      const result = await pending;
+      assert.equal(result.providerKind, 'utility');
+      assert.equal(result.retriedForVisibleOutput, false);
+    } else await assert.rejects(pending, error => {
+      assert.notEqual(error.code, 'DIRECTIVE_TURN_ATTEMPT_LIMIT', 'single-send policy must preserve the original failure');
+      if (outcome === 'cancel') assert.equal(error.code, 'DIRECTIVE_GENERATION_ABORTED');
+      return true;
+    });
+    assert.equal(calls.length - before, 1, `${outcome}: exactly one physical send`);
+    assert.equal(audienceBudget.used, 1);
+    assert.equal(calls.at(-1).options.includePreset, false);
+    assert.equal(calls.at(-1).options.includeInstruct, false);
+    assert.deepEqual(calls.at(-1).messages, isolated.messages);
+    assert.ok(!JSON.stringify(calls.at(-1)).includes('SECRET_'));
+    audienceBudget.dispose();
+  }
+}
+assert.deepEqual(settingsStore.get('utility'), savedUtility, 'isolation must not rewrite saved profiles');
+await assert.rejects(fallback.generate('characterAudienceReviewer', isolated), { code: 'DIRECTIVE_CONTEXT_ISOLATION' });
+await assert.rejects(client.generate('characterAudienceReviewer', isolated, { providerKind: 'reasoning', attemptBudget: createTurnAttemptBudget() }), { code: 'DIRECTIVE_CONTEXT_ISOLATION' });
+console.log('PASS audience review is isolated Utility with one physical send across failure, cancellation and caller retry overrides');

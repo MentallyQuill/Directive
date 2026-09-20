@@ -9,6 +9,7 @@ export const GENERATION_ROLE_IDS = Object.freeze([
   'characterCreatorSectionDraft',
   'characterResponder',
   'sceneNarrator',
+  'characterAudienceReviewer',
   'characterKnowledgeReviewer'
 ]);
 
@@ -18,6 +19,7 @@ const DEFAULT_ROLE_DEFINITIONS = Object.freeze({
   ...Object.fromEntries([
     ['characterResponder', 'Character response', 'reasoning'],
     ['sceneNarrator', 'Protected scene narration', 'narration'],
+    ['characterAudienceReviewer', 'Character audience review', 'utility'],
     ['characterKnowledgeReviewer', 'Character knowledge review', 'utility'],
   ].map(([id, label, providerKind]) => [id, Object.freeze({
     id, label, providerKind, blocking: true, output: 'structured-json',
