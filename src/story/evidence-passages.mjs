@@ -2,9 +2,10 @@ import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 
-function invalid(reason = 'evidence_passage_invalid') {
+function invalid(reason = 'evidence_passage_invalid', feedback = null) {
   const error = new TypeError(reason);
   error.code = 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID';
+  if (feedback) error.feedback = feedback.slice(0, 240);
   throw error;
 }
 function passageId(entry) {
@@ -62,12 +63,12 @@ export function createEvidencePassageCatalog({ sourcePair = {}, limits = {}, req
 export function hydrateEvidenceReferences({ value, catalog, sourcePair = {} } = {}) {
   if (!(catalog instanceof Map)) invalid('evidence_catalog_invalid');
   let nodes = 0;
-  function visit(item, depth = 0, literal = false) {
+  function visit(item, depth = 0, literal = false, path = '') {
     if (++nodes > 10000 || depth > 32) invalid('evidence_output_budget');
     if (item === null || typeof item !== 'object') return item;
-    if (Array.isArray(item)) return item.map(child => visit(child, depth + 1, literal));
+    if (Array.isArray(item)) return item.map((child, index) => visit(child, depth + 1, literal, `${path}[${index}]`.slice(0, 120)));
     if (![Object.prototype, null].includes(Object.getPrototypeOf(item))) invalid();
-    const result = Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child, depth + 1, literal || key === 'value')]));
+    const result = Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child, depth + 1, literal || key === 'value', `${path ? `${path}.` : ''}${/^[a-zA-Z][a-zA-Z0-9]*$/.test(key) ? key : 'field'}`.slice(0, 120))]));
     if (literal) return result;
     for (const [referenceField, slotField, quoteField, fixedSlot, emptyAllowed] of [
       ['evidencePassageId', 'sourceSlot', 'evidenceQuote'],
@@ -83,6 +84,7 @@ export function hydrateEvidenceReferences({ value, catalog, sourcePair = {} } = 
         delete result[referenceField]; result[quoteField] = ''; continue;
       }
       const entry = catalog.get(result[referenceField]);
+      if (!entry) invalid('evidence_passage_invalid', `${path ? `${path}.` : ''}${referenceField}: unknown catalog ID. Copy one exact ID from evidencePassages for this source; never reconstruct or repair an ID.`);
       const source = entry && sourcePair[entry.sourceSlot];
       if (!entry || result[referenceField] !== passageId(entry) || !source || (fixedSlot && entry.sourceSlot !== fixedSlot)
           || source.messageId !== entry.messageId || source.selectedSwipeId !== entry.selectedSwipeId

@@ -141,3 +141,23 @@ assert.ok(repeatedPackets.find(item => item.id === 'line.a2').packet.information
 assert.deepEqual(repeatedActor.invalidate('line.a'), ['line.a', 'line.a2']);
 repeatedActor.dispose();
 console.log('PASS repeated actors retain their own earlier contribution and invalidation dependency');
+
+// Coordinator forwards exactly the admitted channels, without granting visual
+// access to an audio-only remote recipient.
+const routedFlight = createCharacterSceneCoordinator({ responder: { async respond(input) {
+  assert.deepEqual(input.audienceAcquisitions, new Map([['person.player', 'observed'], ['person.b', 'heard']]));
+  input.budget.claim();
+  return { contribution: { ...baseContribution(input), kind: 'action', text: 'A privately shows the PADD to the player.', recipientIds: ['person.player'] } };
+} } }).createFlight({ ...args, budget: createTurnAttemptBudget(),
+  participants: [{ ...participants[0], audience: [{ personId: 'person.player', acquisition: 'observed' }, { personId: 'person.b', acquisition: 'heard' }] }], plan: [plan[0]] });
+const routedDraft = await routedFlight.run();
+assert.equal(routedDraft.disclosures.length, 1);
+assert.equal(routedDraft.disclosures[0].exposure.acquisition, 'observed');
+routedFlight.dispose();
+console.log('PASS exact admitted response channels reach actor and preserve disclosure custody');
+// An alternate responder cannot bypass the final coordinator channel guard.
+const unsupportedAction = createCharacterSceneCoordinator({ responder: { async respond(input) {
+  input.budget.claim(); return { contribution: { ...baseContribution(input), kind: 'action' } };
+} } }).createFlight({ ...args, budget: createTurnAttemptBudget(), plan: [plan[0]] });
+await assert.rejects(unsupportedAction.run(), { code: 'DIRECTIVE_CHARACTER_SCENE_INVALID' });
+assert.equal(unsupportedAction.getDraft(), null);

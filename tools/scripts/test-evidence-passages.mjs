@@ -145,3 +145,47 @@ console.log('PASS schema conversion leaves authored literal values unchanged');
 const authoredSelection = { value: { evidencePassageId: 'an authored literal, not a wire reference' }, evidencePassageId: entry.id };
 assert.deepEqual(evidence.hydrateEvidenceReferences({ value: authoredSelection, catalog, sourcePair }).value, authoredSelection.value);
 console.log('PASS hydration preserves closed-set authored candidate values');
+
+const { createMissionAcceptedPairInterpretationPrompt } = await import('../../src/mission/v1/accepted-pair-interpreter.mjs');
+const referencePrompt = createMissionAcceptedPairInterpretationPrompt({ sourcePair, evidenceReferences: true });
+assert.match(referencePrompt.systemPrompt, /opaque.*copy.*exact/i);
+assert.match(referencePrompt.systemPrompt, /aim.*60 characters/i);
+for (const conflicting of [/must include evidenceQuote:/, /supply sourceSlot and evidenceQuote/, /add durationSeconds, durationSourceSlot/, /People observations use.*sourceSlot, and evidenceQuote/]) {
+  assert.doesNotMatch(referencePrompt.systemPrompt, conflicting);
+}
+const pacingReferencePrompt = createMissionAcceptedPairInterpretationPrompt({ sourcePair, evidenceReferences: true,
+  candidatePacket: { candidates: [], scenePacing: { objectives: [{ id: 'objective.test', scenePacing: { requirements: ['Discuss terms.'] } }], currentScene: null } } });
+assert.match(pacingReferencePrompt.systemPrompt, /intentPassageId must select/);
+assert.match(pacingReferencePrompt.systemPrompt, /null missionDeparturePassageId/);
+for (const prompt of [referencePrompt, pacingReferencePrompt]) {
+  assert.doesNotMatch(prompt.systemPrompt, /example only:|"evidenceQuote"|"intentQuote"|"missionDepartureQuote"/);
+}
+const legacyPrompt = createMissionAcceptedPairInterpretationPrompt({ sourcePair, evidenceReferences: false });
+assert.match(legacyPrompt.systemPrompt, /supply sourceSlot and evidenceQuote/);
+assert.equal(referencePrompt.jsonSchema.properties.time.properties.reason.maxLength, 180);
+let typoCalls = 0, typoFeedback;
+const typoInterpreter = createMissionAcceptedPairInterpreter({ generationRouter: { generate: async (_role, request) => {
+  typoCalls++;
+  const text = request.messages[1].content;
+  const context = JSON.parse(text.slice(text.indexOf('{')));
+  const passage = context.evidencePassages.find(item => item.sourceSlot === 'currentPlayer');
+  if (typoCalls === 2) assert.deepEqual(context.validationFeedback.errors, typoFeedback);
+  return { ok: true, response: { text: JSON.stringify({ kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], peopleEvents: [], abstained: true,
+    time: { decision: 'advance', basis: 'implicitAction', elapsedSeconds: 2, reason: 'spoken request', confidence: 0.9, evidencePassageId: typoCalls === 1 ? passage.id.slice(0, -1) : passage.id } }) } };
+} } });
+const typoResult = await typoInterpreter({ candidatePacket: { candidates: [] }, sourcePair });
+assert.equal(typoResult.ok, false);
+assert.equal(typoCalls, 1, 'invalid ID must not trigger an added automatic retry or be silently corrected');
+typoFeedback = typoResult.diagnostics.errors;
+assert.equal(typoFeedback[0], 'evidence_passage_invalid');
+assert.ok(typoFeedback.some(error => /time.evidencePassageId:.*exact.*evidencePassages/.test(error)), JSON.stringify(typoFeedback));
+assert.ok(typoFeedback.every(error => error.length <= 240));
+assert.equal((await typoInterpreter({ candidatePacket: { candidates: [] }, sourcePair, validationErrors: typoFeedback })).ok, true);
+assert.equal(typoCalls, 2);
+console.log('PASS coherent reference prompt and field-specific feedback preserve existing retry custody');
+
+assert.throws(() => evidence.hydrateEvidenceReferences({ value: { claims: [{ evidencePassageId: 'passage.foreign' }] }, catalog, sourcePair }),
+  error => error.message === 'evidence_passage_invalid' && error.feedback.startsWith('claims[0].evidencePassageId:') && !error.feedback.includes('passage.foreign'));
+assert.throws(() => evidence.hydrateEvidenceReferences({ value: { time: { evidencePassageId: entry.id } }, catalog,
+  sourcePair: { ...sourcePair, previousAssistant: { ...sourcePair.previousAssistant, textHash: 'stale' } } }),
+  error => error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' && error.feedback === undefined, 'a real ID with stale source custody is not misreported as an unknown ID');

@@ -56,3 +56,33 @@ await respond({ ...args, repair: true });
 assert.ok(JSON.stringify(calls.at(-1)).includes('validationFeedback'));
 assert.ok(!JSON.stringify(calls.at(-1)).includes('SECRET_ACTOR_FEEDBACK'));
 console.log('PASS actor repair uses fixed scoped feedback');
+
+// A response route is caller authority, not a model choice. K03's private
+// PADD action must never be delivered over its mistakenly admitted audio route.
+const typedReply = { ...base, kind: 'action', mode: 'ordinary', text: "Whitaker typed 'ivory kestrel 62' on her own PADD, then angled the screen toward Jonah alone.", basisIds: ['skill.tools'] };
+const channelRequests = [];
+let channelAnswer = typedReply;
+const channelResponder = createCharacterResponder({ generation: { async generate(role, request, options) {
+  options.attemptBudget.claim(); channelRequests.push(request);
+  return { text: JSON.stringify(channelAnswer) };
+} } });
+const channelArgs = { ...args, budget: createTurnAttemptBudget({ limit: 20 }) };
+await assert.rejects(channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'heard']]) }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+assert.deepEqual(JSON.parse(channelRequests.at(-1).messages[1].content).schema.properties.kind.enum, ['speech']);
+assert.deepEqual((await channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'observed']]) })).contribution, typedReply);
+assert.deepEqual(JSON.parse(channelRequests.at(-1).messages[1].content).audienceRoutes, [{ personId: 'person.player', acquisition: 'observed' }]);
+await assert.rejects(channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'read']]) }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+channelAnswer = { ...base, recipientIds: ['person.remote'] };
+const mixedChannelArgs = { ...channelArgs, audienceIds: new Set(['person.player', 'person.remote']), audienceAcquisitions: new Map([['person.player', 'observed'], ['person.remote', 'heard']]) };
+assert.equal((await channelResponder.respond(mixedChannelArgs)).contribution.kind, 'speech');
+channelAnswer = { ...typedReply, recipientIds: ['person.player', 'person.remote'] };
+await assert.rejects(channelResponder.respond(mixedChannelArgs), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+channelAnswer = typedReply;
+assert.deepEqual((await channelResponder.respond(mixedChannelArgs)).contribution.recipientIds, ['person.player']);
+for (const routes of [new Map(), new Map([['person.player', 'visual']]), new Map([['person.player', 'heard'], ['person.remote', 'observed']])]) {
+  await assert.rejects(noTransport.respond({ ...args, audienceAcquisitions: routes }), { code: 'DIRECTIVE_CHARACTER_KNOWLEDGE_INVALID' });
+}
+console.log('PASS admitted response channels constrain action recipients without remote visual access');
+channelAnswer = { ...base, text: 'The written reply says: Ready.' };
+assert.equal((await channelResponder.respond({ ...channelArgs, audienceAcquisitions: new Map([['person.player', 'read']]) })).contribution.kind, 'speech');
+console.log('PASS quoted written content retains read route without granting physical action access');

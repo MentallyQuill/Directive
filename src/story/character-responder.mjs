@@ -18,13 +18,18 @@ function referenceSchema(ids, maximum) {
 export function createCharacterResponder({ generation } = {}) {
   if (typeof generation?.generate !== 'function') throw new TypeError('character-responder-generation-required');
   return {
-    async respond({ packet, playerId, contributionId, audienceIds, priorContributionIds = new Set(), signal, budget, reservation = null, maxAttempts = 1, repair = false } = {}) {
+    async respond({ packet, playerId, contributionId, audienceIds, audienceAcquisitions = null, priorContributionIds = new Set(), signal, budget, reservation = null, maxAttempts = 1, repair = false } = {}) {
       assertGenerationActive(signal);
       const checkedPacket = parseCharacterKnowledgePacket(packet);
       if (!(audienceIds instanceof Set) || !(priorContributionIds instanceof Set) || typeof budget?.claim !== 'function'
         || !Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 2) throw invalid();
       const audience = [...audienceIds].sort();
       const dependencies = [...priorContributionIds].sort();
+      if (audienceAcquisitions !== null && (!(audienceAcquisitions instanceof Map)
+        || audienceAcquisitions.size !== audience.length
+        || audience.some(id => !['heard', 'observed', 'read'].includes(audienceAcquisitions.get(id))))) throw invalid();
+      const audienceRoutes = audienceAcquisitions === null ? null : audience.map(personId => ({ personId, acquisition: audienceAcquisitions.get(personId) }));
+      const actionRecipients = audienceRoutes === null ? audience : audienceRoutes.filter(route => route.acquisition === 'observed').map(route => route.personId);
       const stableId = new RegExp(CONTINUITY_STABLE_ID_PATTERN);
       if (audience.length > 16 || dependencies.length > 16 || [...audience, ...dependencies].some(id => typeof id !== 'string' || id.length > 180 || !stableId.test(id))) throw invalid();
       const context = { packet: checkedPacket, playerId, audienceIds: new Set(audience), priorContributionIds: new Set(dependencies) };
@@ -35,7 +40,7 @@ export function createCharacterResponder({ generation } = {}) {
         required: ['id', 'personId', 'kind', 'mode', 'text', 'basisIds', 'recipientIds', 'dependsOnIds'],
         properties: {
           id: { type: 'string', const: contributionId }, personId: { type: 'string', const: checkedPacket.personId },
-          kind: { type: 'string', enum: ['speech', 'action'] }, mode: { type: 'string', enum: ['recall', 'inference', 'question', 'ordinary', 'deception'] },
+          kind: { type: 'string', enum: audienceRoutes !== null && !actionRecipients.length ? ['speech'] : ['speech', 'action'] }, mode: { type: 'string', enum: ['recall', 'inference', 'question', 'ordinary', 'deception'] },
           text: { type: 'string', minLength: 1, maxLength: 4000 }, basisIds: referenceSchema(basis, 32),
           recipientIds: referenceSchema(audience, 16), dependsOnIds: referenceSchema(dependencies, 16),
         } };
@@ -44,7 +49,7 @@ export function createCharacterResponder({ generation } = {}) {
         assertGenerationActive(signal);
         const request = createIsolatedGenerationRequest({ signal, jsonSchema: schema, messages: [
           { role: 'system', content: INSTRUCTIONS },
-          { role: 'user', content: JSON.stringify({ packet: checkedPacket, schema, ...((attempt || repair === true) ? { validationFeedback: FEEDBACK } : {}) }) },
+          { role: 'user', content: JSON.stringify({ packet: checkedPacket, schema, ...(audienceRoutes === null ? {} : { audienceRoutes, responseChannelRules: 'Use only admitted audience routes. An action may name only recipients whose acquisition is observed; heard/read routes do not authorize seeing an action. Choose speech when no observed route is admitted. Never convert a requested private visual response into speech that discloses its contents over an audio channel.' }), ...((attempt || repair === true) ? { validationFeedback: FEEDBACK } : {}) }) },
         ] });
         const result = await generation.generate('characterResponder', request, { signal, attemptBudget: budget, attemptReservation: reservation });
         assertGenerationActive(signal);
@@ -54,6 +59,7 @@ export function createCharacterResponder({ generation } = {}) {
           const parsed = parseStructuredJsonText(response?.text ?? '', { requireObject: true });
           if (!parsed.ok) throw Object.assign(new Error('Character response was not valid JSON.'), { code: parsed.diagnostic.code });
           const contribution = parseCharacterContribution(parsed.value, context);
+          if (audienceRoutes !== null && contribution.kind === 'action' && (!actionRecipients.length || contribution.recipientIds.some(id => !actionRecipients.includes(id)))) throw invalid();
           if (contribution.id !== contributionId || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]|<\/?(?:script|system|assistant|tool)\b|\{\{/i.test(contribution.text)) throw invalid();
           return { contribution, packetDigest };
         } catch (error) {

@@ -191,7 +191,7 @@ export function createCharacterSceneCoordinator({ responder, limits: configured 
                   const cacheKey = digest({ baseDigest, node, packetDigest, dependencies: node.dependsOnIds.map(id => cache.get(id)?.contributionDigest) });
                   if (cache.get(node.id)?.cacheKey === cacheKey) return;
                   const result = await abortable(Promise.resolve(responder.respond({ packet, playerId, contributionId: node.id,
-                    audienceIds: new Set(node.audience.keys()), priorContributionIds: new Set(node.dependsOnIds), signal: runSignal, budget, repair: invalidated.has(node.id) })), runSignal);
+                    audienceIds: new Set(node.audience.keys()), audienceAcquisitions: new Map(node.audience), priorContributionIds: new Set(node.dependsOnIds), signal: runSignal, budget, repair: invalidated.has(node.id) })), runSignal);
                   check(runVersion); assertGenerationActive(runSignal);
                   const contribution = parseCharacterContribution(result?.contribution, { packet, playerId, audienceIds: new Set(node.audience.keys()), priorContributionIds: new Set(node.dependsOnIds) });
                   if (contribution.id !== node.id) fail();
