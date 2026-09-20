@@ -76,6 +76,7 @@ wrongDisk.context.fetch = async () => ({ ok: true, json: async () => [{ chat_met
 await assert.rejects(wrongDisk.adapter.publishProtectedScene(request('publication.missing-disk')), { code: 'DIRECTIVE_CHARACTER_PUBLICATION_PENDING' });
 assert.equal(wrongDisk.context.chat.length, 1);
 const hiddenDisplay = rig();
+hiddenDisplay.context.addOneMessage = async (message, options) => { if (options?.type === 'swipe') throw new Error('swipe display unavailable'); };
 hiddenDisplay.context.updateMessage = async () => { throw new Error('display unavailable'); };
 assert.equal((await hiddenDisplay.adapter.publishProtectedScene(request('publication.display'))).displayUpdated, false);
 console.log('PASS serialized publication, stale queued owner, saved-row verification and truthful display status');
@@ -170,3 +171,36 @@ console.log('PASS native Regenerate exact removed-row restoration and preserved 
   assert.deepEqual(rejected.context.chat, before, `${change} cannot restore an old assistant over a changed source`);
 }
 console.log('PASS native Regenerate rejects changed prefix, source identity, binding, Stop and owner');
+const nativeSwipeDisplay = rig(), renderedRows = [];
+let readbackSwipeCount = 0;
+const nativeReadback = nativeSwipeDisplay.context.fetch;
+nativeSwipeDisplay.context.fetch = async (...args) => {
+  const response = await nativeReadback(...args);
+  const data = await response.json();
+  readbackSwipeCount = data[1]?.swipes?.length || 0;
+  return { ...response, json: async () => data };
+};
+nativeSwipeDisplay.context.addOneMessage = async (message, options = {}) => {
+  const rendered = { text: message.mes, selectedSwipe: message.swipe_id, counter: `${message.swipe_id + 1}/${message.swipes.length}` };
+  if (options.type === 'swipe') {
+    assert.equal(readbackSwipeCount, message.swipes.length, 'refresh selected variant only after persisted transcript readback');
+    renderedRows[options.forceId] = rendered;
+  }
+  else renderedRows.push(rendered);
+};
+// Native updateMessageBlock only updates content, not swipe attributes/counters.
+nativeSwipeDisplay.context.updateMessageBlock = async (index, message) => { renderedRows[index].text = message.mes; };
+await nativeSwipeDisplay.adapter.publishProtectedScene(request('publication.native-ui-original'));
+await nativeSwipeDisplay.adapter.publishProtectedScene(request('publication.native-ui-swipe', { hostMessageId: '0' }));
+assert.equal(renderedRows.length, 1, 'in-place swipe rendering must not append a duplicate message');
+assert.equal(renderedRows[0].selectedSwipe, 1);
+assert.equal(renderedRows[0].counter, '2/2', 'protected publication refreshes native selected swipe and counter after persisted readback');
+console.log('PASS native Protected swipe display refreshes selection and counter in place');
+const fallbackDisplay = rig();
+delete fallbackDisplay.context.addOneMessage;
+assert.equal((await fallbackDisplay.adapter.publishProtectedScene(request('publication.ui-fallback'))).displayUpdated, true);
+const canceledDisplay = rig(), displayStop = new AbortController();
+canceledDisplay.context.addOneMessage = async (message, options = {}) => { if (options.type === 'swipe') displayStop.abort(); };
+await assert.rejects(canceledDisplay.adapter.publishProtectedScene(request('publication.ui-stop', { signal: displayStop.signal })), { code: 'DIRECTIVE_GENERATION_ABORTED' });
+assert.equal(canceledDisplay.context.chat.length, 1, 'Stop during display preserves the already-saved response without duplicating it');
+console.log('PASS swipe rendering retains host fallback and cancellation custody');

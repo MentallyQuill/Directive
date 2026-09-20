@@ -1152,8 +1152,14 @@ function ensureMessageSwipes(message) {
   return message.swipes;
 }
 
-async function refreshMessageDisplay(context, index, message) {
+async function refreshMessageDisplay(context, index, message, { refreshSwipes = false } = {}) {
   const candidates = [
+    // updateMessageBlock only refreshes content. Native in-place swipe rendering
+    // also updates the selected variant attribute and counter while generating.
+    ...(refreshSwipes ? [
+      [context?.addOneMessage, [message, { type: 'swipe', forceId: index, scroll: false }]],
+      [globalThis.addOneMessage, [message, { type: 'swipe', forceId: index, scroll: false }]],
+    ] : []),
     [context?.updateMessageBlock, [index, message]],
     [globalThis.updateMessageBlock, [index, message]],
     [context?.updateMessage, [index, message]],
@@ -2214,7 +2220,7 @@ export function createSillyTavernChatAdapter({
           || saved.message.swipes?.[saved.swipeIndex] !== text || canonicalJson(saved.metadata) !== canonicalJson(publicationMetadata(publication, publicationSource(saved.message, saved.index, saved.swipeIndex)))) {
           throw publicationError('DIRECTIVE_CHARACTER_PUBLICATION_PENDING', publicationId);
         }
-        const displayUpdated = await refreshMessageDisplay(ctx, live.index, live.message);
+        const displayUpdated = await refreshMessageDisplay(ctx, live.index, live.message, { refreshSwipes: true });
         publication.guard('reconcile', source);
         return { ok: true, persisted: true, duplicate: Boolean(existing), publicationId, hostMessageId: source.messageId,
           index: live.index, swipeIndex: live.swipeIndex, source, displayUpdated, metadata: cloneJson(saved.metadata) };
