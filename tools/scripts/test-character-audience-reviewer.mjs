@@ -12,6 +12,7 @@ for (const mode of ['pass','reject','missing','stale','empty','stop','capacity',
   calls++; assert.equal(role,'characterAudienceReviewer'); assert.equal(options.maxAttempts,1); assert.equal(options.allowVisibleOutputRetry,false);
   options.attemptBudget.claim({reservation:options.attemptReservation});
   const payload=JSON.parse(request.messages[1].content);
+  assert.deepEqual(payload.candidatePackets, [...prepared.preparedByPerson].map(([personId,packet])=>({personId,packet})), 'reviewer must inspect the exact frozen actor packets for omitted requests');
   assert.ok(JSON.stringify(payload.evidence).includes('do not relay it to Captain Whitaker yet'));
   const receipt={kind:'directive.characterAudienceReview.v1',manifestDigest:payload.manifestDigest,evidenceDigest:payload.evidenceDigest,identityDigest:payload.identityDigest,verdict:mode==='reject'?'reject':'pass',checkedEntryIds:payload.manifest.entries.map(e=>e.id),findings:mode==='reject'?[{entryId:payload.manifest.entries[0].id,reason:'Unsupported recipient.'}]:[]};
   if(mode==='missing') receipt.checkedEntryIds.pop(); if(mode==='stale') receipt.evidenceDigest='0'.repeat(64);
