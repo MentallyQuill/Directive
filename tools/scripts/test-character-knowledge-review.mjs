@@ -90,3 +90,63 @@ await assert.rejects(stopPipeline.generate({ flight: stopFlight, scenePacket: sc
 assert.equal(stopReviews, 1);
 assert.equal(stopFlight.getDraft(), null);
 console.log('PASS unavailable/stale reviews, changed audience, actor repair, budget exhaustion and Stop');
+
+// A readable essay is not a review receipt. Request one bounded format correction.
+const formatCalls = [], formatBudget = createTurnAttemptBudget({ limit: 3 });
+const retainedReservation = formatBudget.reserve('other-role', 1);
+const formatReviewer = createCharacterKnowledgeReviewer({ generation: { async generate(role, request, options) {
+  options.attemptBudget.claim(); formatCalls.push(request);
+  const input = JSON.parse(request.messages[1].content);
+  return { text: formatCalls.length === 1 ? 'The full scene respects the support. No findings.' : JSON.stringify({
+    kind: 'directive.characterKnowledgeReview.v1', candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [],
+  }) };
+} } });
+const formatRecovered = await formatReviewer.review({ candidate, draft, scenePacket: scene, budget: formatBudget });
+assert.equal(formatRecovered.review.verdict, 'pass');
+assert.equal(formatCalls.length, 2);
+assert.equal(formatBudget.used, 2);
+assert.equal(formatBudget.available, 0);
+assert.equal(formatBudget.release(retainedReservation), 1, 'format recovery cannot spend another role reservation');
+assert.equal(formatCalls[0].messages[1].content, formatCalls[1].messages[1].content, 'candidate, support and schema remain exact on format correction');
+assert.match(formatCalls[1].messages[0].content, /previous response.*invalid.*format/i);
+console.log('PASS one bounded reviewer JSON format correction with exact custody');for (const mode of ['repeated-format', 'reserved-budget', 'provider-limit', 'provider-failure', 'stopped', 'stale-digest', 'invalid-reference', 'semantic-reject']) {
+  let attempts = 0;
+  const controller = new AbortController();
+  const limitedBudget = createTurnAttemptBudget({ limit: mode === 'reserved-budget' ? 2 : 4, signal: controller.signal });
+  limitedBudget.reserve('retained-role', 1);
+  const limitedReviewer = createCharacterKnowledgeReviewer({ generation: { async generate(role, request, options) {
+    options.attemptBudget.claim(); attempts++;
+    if (mode === 'provider-limit' || mode === 'provider-failure') return { ok: false, error: { code: mode === 'provider-limit' ? 'provider_token_limit' : 'DIRECTIVE_PROVIDER_UNAVAILABLE' } };
+    if (mode === 'stopped') controller.abort();
+    if (['stale-digest', 'invalid-reference', 'semantic-reject'].includes(mode)) {
+      const input = JSON.parse(request.messages[1].content);
+      return { text: JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1', candidateDigest: mode === 'stale-digest' ? 'f'.repeat(64) : input.candidateDigest,
+        supportDigest: input.supportDigest, verdict: mode === 'stale-digest' ? 'pass' : 'reject', findings: mode === 'stale-digest' ? [] : [{
+          id: 'finding.reject', segmentId: mode === 'invalid-reference' ? 'segment.forged' : 'segment.1', subjectId: 'person.a', type: 'unsupported-knowledge', explanation: 'Knowledge exceeds support.', supportIds: [],
+        }] }) };
+    }
+    return { text: 'No findings.' };
+  } } });
+  const attempt = limitedReviewer.review({ candidate, draft, scenePacket: scene, budget: limitedBudget, signal: controller.signal });
+  if (mode === 'semantic-reject') assert.equal((await attempt).review.verdict, 'reject');
+  else await assert.rejects(attempt);
+  assert.equal(attempts, mode === 'repeated-format' ? 2 : 1, mode);
+}
+const fullFormatBudget = createTurnAttemptBudget({ limit: 4 });
+const fullFormatFlight = makeFlight(fullFormatBudget);
+let fullFormatCalls = 0;
+const fullFormatReviewer = createCharacterKnowledgeReviewer({ generation: { async generate(role, request, options) {
+  options.attemptBudget.claim(); fullFormatCalls++;
+  const input = JSON.parse(request.messages[1].content);
+  return { text: fullFormatCalls === 1 ? 'No findings.' : JSON.stringify({ kind: 'directive.characterKnowledgeReview.v1',
+    candidateDigest: input.candidateDigest, supportDigest: input.supportDigest, verdict: 'pass', findings: [] }) };
+} } });
+const beforeFormatActors = actorCalls, beforeFormatNarrations = narrationCalls;
+const fullFormatApproved = await createReviewedCharacterScene({ narrator, reviewer: fullFormatReviewer }).generate({ flight: fullFormatFlight, scenePacket: scene, budget: fullFormatBudget });
+assert.equal(fullFormatApproved.review.verdict, 'pass');
+assert.equal(fullFormatBudget.used, 4);
+assert.equal(actorCalls - beforeFormatActors, 1);
+assert.equal(narrationCalls - beforeFormatNarrations, 1);
+fullFormatFlight.assertCurrent(fullFormatApproved.draft.flightDigest);
+fullFormatFlight.dispose();
+console.log('PASS reviewer correction respects reservations, Stop, provider failures and semantic verdicts without regenerating the scene');
