@@ -53,14 +53,14 @@ Files: architecture People documentation, test gate registration, runtime integr
 - [x] Update architecture documentation with resolution semantics, limits and recovery behavior.
 - [x] Run focused tests, then `npm.cmd test`, recording output and fixing material regressions.
 - [x] Request a fresh whole-branch review, reproduce findings and fix material issues with regression tests.
-- [ ] Commit scoped files, fetch main, integrate any upstream changes without rewriting history, push HEAD:main, and verify with network-enabled GitHub CLI.
+- [x] Commit scoped files, fetch main, integrate any upstream changes without rewriting history, push HEAD:main, and verify with network-enabled GitHub CLI.
 
 ## Execution record
 - Goal explicitly authorizes all stages through push; proceed without routine approval handoffs.
 - Worktree baseline: origin/main b75c34dbc1835cd0ea46a668273a0e25e9c76dc0; main checkout dirt preserved.
 
 - Tasks 1-3: complete. New regression failures were observed for missing context, unsupported resolution, silent overflow truncation, repaired-episode ordering, conflicting replay, context priority, and reviewer findings; affected tests now pass.
-- Task 4: runtime/storage tests, documentation, review and full gate complete; integration pending.
+- Task 4: complete. Implementation pushed to main and verified with GitHub CLI.
 - Baseline: `npm.cmd test` passed all 286 checks on b75c34d.
 - First candidate gate stopped at unchanged `test-ui-experience-polish-visual.mjs:57` focus-color assertion. An immediate isolated rerun passed unchanged; final full gate passed all 289 checks. No browser assertion was weakened.
 - Independent review: P1 found a later unchanged null-matter effect could erase resolution custody. Fixed by emitting only changed relationship fields; a two-review segmented-save/reload/rollback test passes.
@@ -71,3 +71,5 @@ Files: architecture People documentation, test gate registration, runtime integr
 - Limits: model semantic extraction and provider coverage claims are not live-qualified by these offline tests. Running SillyTavern and stored campaigns remain untouched.
 
 - Final verification: `npm.cmd test` passed all 289 checks after review fixes, including the unchanged visual test and 25 route/viewports; `git diff --check` passed.
+
+- Integration: implementation commit `db0e487996b418116ad9940cb849d0da8a652c8d` pushed as a fast-forward to `main`; `gh api repos/MentallyQuill/Directive/commits/main --jq .sha` confirmed the exact commit. This documentation-only completion record follows it.
