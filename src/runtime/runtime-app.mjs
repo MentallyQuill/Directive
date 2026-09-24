@@ -1855,7 +1855,9 @@ export function createDirectiveRuntimeApp({
       binding: clone(state?.campaignChatBinding),
       snapshot: clone(snapshot),
     };
-    if (characterKnowledgeSettings()?.mode === 'protected' && ['continue', 'swipe', 'regenerate'].includes(generationType)) {
+    // Native legacy generation also retains the assistant row it is replacing.
+    // Freeze that exact tail so unchanged replacements pass, while edits still fail.
+    if (['continue', 'swipe', 'regenerate'].includes(generationType)) {
       const rows = host.chat.getRecentMessages?.({ limit: Number.MAX_SAFE_INTEGER, playerSafeOnly: false });
       if (!Array.isArray(rows)) throw acceptedPairSourceStale('source-read-unavailable');
       const active = rows.filter(activeSourceRow);

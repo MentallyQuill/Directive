@@ -67,6 +67,7 @@ const checks = [
   "test-story-director-runtime.mjs",
   "test-generation-timeout-settings.mjs",
   "test-retry-generation-handoff.mjs",
+  "test-legacy-replacement-source.mjs",
   "test-native-generation-gesture-retry.mjs",
   "test-story-director-mission-runtime.mjs",
   "test-people-dossier-queue.mjs",
