@@ -4,6 +4,7 @@ export const PEOPLE_EVENT_TYPES = Object.freeze([
     'personIntroduced',
     'publicFactLearned',
     'relationshipEvidence',
+    'relationshipMatterResolved',
 ]);
 
 export const PUBLIC_PERSON_FACT_FIELDS = Object.freeze([
@@ -48,6 +49,8 @@ const RELATIONSHIP_EVIDENCE_FIELDS = new Set([
     'evidenceQuote',
     'evidenceQuoteHash',
 ]);
+
+const MATTER_RESOLUTION_FIELDS = new Set(['id', 'type', 'personId', 'matterEffectId', 'sourceContributionIds', 'evidenceQuote', 'evidenceQuoteHash']);
 
 function isObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -132,6 +135,13 @@ export function validatePeopleEvent(event = {}, {
         }
         const known = knownPersonIds === null ? null : new Set(knownPersonIds || []);
         if (known && !known.has(event.personId)) errors.push(`public fact references unknown person: ${event.personId}`);
+    } else if (event.type === 'relationshipMatterResolved') {
+        for (const field of Object.keys(event)) {
+            if (!MATTER_RESOLUTION_FIELDS.has(field)) errors.push(`people event contains unknown field: ${field}`);
+        }
+        if (!isStableId(event.matterEffectId)) errors.push('matter resolution target must be stable');
+        if (!compact(event.evidenceQuote)) errors.push('matter resolution requires quoted evidence');
+        if (knownPersonIds !== null && !knownPersonIds.includes(event.personId)) errors.push('matter resolution references unknown person');
     } else if (event.type === 'relationshipEvidence') {
         for (const field of Object.keys(event)) {
             if (!RELATIONSHIP_EVIDENCE_FIELDS.has(field)) errors.push(`people event contains unknown field: ${field}`);

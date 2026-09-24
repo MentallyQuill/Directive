@@ -1114,3 +1114,30 @@ assert.equal(cancellationSignal?.aborted, true);
 assert.equal(cancellationHarness.persistCount, 0);
 
 console.log('V1 mission runtime tests passed.');
+
+// Conditional People recovery completes before any accepted-pair persistence.
+const crowdedPeople=JSON.parse(interpretationOutput({abstained:true,peopleEvents:Array.from({length:5},(_,index)=>({type:'relationshipEvidence',personRef:'mara-whitaker',summary:`Supported handover observation ${index}.`,sourceSlot:'previousAssistant'}))}));
+for (const mode of ['complete','overflow','cancel']) {
+ const controller=new AbortController();let calls=0;
+ const recoveryHarness=createHarness({generation:{generate:async(_role,request)=>{
+  calls++;
+  if(request.kind==='directive.peopleObservationRecoveryRequest.v1') {
+   if(mode==='cancel')controller.abort();
+   return {ok:true,response:{text:JSON.stringify({kind:'directive.peopleObservationRecovery.v1',coverage:mode==='overflow'?'overflow':'complete',peopleEvents:crowdedPeople.peopleEvents})}};
+  }
+  return {ok:true,response:{text:JSON.stringify(crowdedPeople)}};
+ }}});
+ const initialState=structuredClone(recoveryHarness.campaignState);
+ const snapshot=snapshotFor({sourceRangeHash:`range.recovery.${mode}`,pairNumber:71});
+ const result=await recoveryHarness.runtime.settleAcceptedPair({runtimeAssets:recoveryHarness.assets,snapshot,signal:controller.signal});
+ assert.equal(result.ok,mode==='complete',JSON.stringify(result));assert.equal(calls,2);
+ if(mode==='complete') {
+  assert.equal(recoveryHarness.persistCount,1);
+  assert.equal(recoveryHarness.campaignState.storySettlement.episodes.flatMap(e=>e.peopleEvents).length,5);
+  assert.equal((await recoveryHarness.runtime.settleAcceptedPair({runtimeAssets:recoveryHarness.assets,snapshot})).ok,true);
+  assert.equal(calls,2,'receipt replay must not repeat recovery');
+ } else {
+  assert.equal(recoveryHarness.persistCount,0);assert.deepEqual(recoveryHarness.campaignState,initialState,'failed recovery leaves the complete accepted pair pending');
+ }
+}
+console.log('Accepted-pair People recovery has no partial persistence and replays without calls.');

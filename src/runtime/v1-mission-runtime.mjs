@@ -933,6 +933,7 @@ export function captureAcceptedPairAnalysis({
     const peopleContext = createPeopleInterpretationContext({
         crewDataset: runtimeAssets?.crewDataset || {},
         storySettlement: campaignState?.storySettlement || {},
+        limits,
     });
     const timeContext = timeContextFromSnapshot(campaignState, snapshot, runtimeAssets);
     const interpreterInput = { candidatePacket, sourcePair, timeContext, peopleContext, limits };
@@ -1689,6 +1690,7 @@ export function createV1MissionRuntime({
         const peopleContext = createPeopleInterpretationContext({
             crewDataset: runtimeAssets?.crewDataset || {},
             storySettlement: campaignState?.storySettlement || {},
+            limits: generationRouter?.getAnalysisLimits?.() || {},
         });
         let interpreted;
         const interpretationReused = Boolean(preparedInterpretation)

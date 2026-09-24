@@ -1,3 +1,5 @@
+import { canonicalJson } from '../storage/v1-state-delta-codec.mjs';
+import { projectRelationshipStates, createMatterResolutionSourceCheck } from '../people/relationship-state.mjs';
 import {
     EMERGENT_FOCUS_KIND,
     EPISODE_REVIEW_ATTEMPT_KIND,
@@ -309,13 +311,31 @@ export function appendStoryPeopleEvents(settlement, events = [], { knownPersonId
     if (!episode) throw new TypeError('an active episode is required');
     const contributionIds = episode.contributions.map((item) => item.id);
     const existingIds = new Set((episode.peopleEvents || []).map((event) => event.id));
+    for (const event of events) {
+        const existing = (episode.peopleEvents || []).find(item => item.id === event?.id);
+        if (existing && canonicalJson(existing) !== canonicalJson(event)) throw new TypeError('conflicting People event replay');
+    }
     const additions = events.filter((event) => !existingIds.has(event?.id));
     const knownPersonIds = new Set([
         ...(Array.isArray(suppliedKnownPersonIds) ? suppliedKnownPersonIds : []),
         ...(episode.references?.participantIds || []),
         ...additions.filter((event) => event?.type === 'personIntroduced').map((event) => event.personId),
     ]);
+    const currentEpisodes = [...selectCurrentStoryEpisodes(settlement), episode];
+    const matters = projectRelationshipStates(currentEpisodes);
+    const canResolveMatter = createMatterResolutionSourceCheck(currentEpisodes);
+    const resolvedTargets = new Set();
     for (const event of additions) {
+        if (event.type === 'relationshipMatterResolved') {
+            if (matters.get(event.personId)?.openMatterId !== event.matterEffectId
+                || resolvedTargets.has(event.matterEffectId)) throw new TypeError('matter resolution target is stale, duplicated, or belongs to another person');
+            if (!canResolveMatter(event)) throw new TypeError('matter resolution source is earlier than its obligation or is not an assistant outcome');
+            if (!event.sourceContributionIds?.length || event.sourceContributionIds.some(id =>
+                episode.contributions.find(source => source.id === id)?.role !== 'assistant')) {
+                throw new TypeError('matter resolution requires accepted assistant outcome sources');
+            }
+            resolvedTargets.add(event.matterEffectId);
+        }
         const result = validatePeopleEvent(event, {
             knownContributionIds: contributionIds,
             knownPersonIds: [...knownPersonIds],

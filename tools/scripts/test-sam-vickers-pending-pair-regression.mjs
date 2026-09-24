@@ -99,10 +99,11 @@ const parsed = parseMissionAcceptedPairInterpretationOutput(interpretation, {
     sourcePair,
     peopleContext,
 });
-assert.equal(parsed.ok, true, parsed.errors?.join('\n'));
-assert.deepEqual(parsed.value.claims, interpretation.claims, 'Mission evidence must take precedence over overflow People observations.');
-assert.deepEqual(parsed.value.peopleEvents, interpretation.peopleEvents.slice(0, 3));
-assert.equal(parsed.discardedOverflowPeopleEventCount, 1);
+assert.equal(parsed.ok, false, 'overflow requires recovery before settlement');
+assert.equal(parsed.reasonCode, 'people-observation-overflow');
+assert.deepEqual(parsed.recovery.value.claims, interpretation.claims, 'Mission evidence must take precedence over overflow People observations.');
+assert.deepEqual(parsed.recovery.value.peopleEvents, interpretation.peopleEvents);
+assert.equal(parsed.recovery.discardedOverflowPeopleEventCount, 0);
 
 const schema = createMissionAcceptedPairInterpretationSchema({ candidatePacket });
 assert.deepEqual(

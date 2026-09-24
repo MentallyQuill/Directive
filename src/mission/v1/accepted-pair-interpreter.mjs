@@ -16,11 +16,12 @@ const MISSION_EVIDENCE_MAX_TOKENS = 8192;
 
 const ASSISTANT_ACCEPTANCE_VALUES = new Set(['accepted', 'rejected', 'corrected', 'ambiguous']);
 const SOURCE_SLOTS = new Set(['previousAssistant', 'currentPlayer']);
-const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time', 'scenePacing']);
+const TOP_LEVEL_FIELDS = new Set(['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'peopleCoverage', 'abstained', 'time', 'scenePacing']);
 const CLAIM_FIELDS = new Set(['candidateId', 'sourceSlot', 'value', 'evidenceQuote', 'materiallyNewEvidence']);
 const PEOPLE_INTRODUCTION_FIELDS = new Set(['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_FACT_FIELDS = new Set(['type', 'personRef', 'field', 'value', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_RELATIONSHIP_FIELDS = new Set(['type', 'personRef', 'summary', 'sourceSlot', 'evidenceQuote']);
+const PEOPLE_RESOLUTION_FIELDS = new Set(['type', 'personRef', 'matterEffectId', 'sourceSlot', 'evidenceQuote']);
 const PEOPLE_FACT_NAMES = new Set([
     'displayName', 'role', 'affiliation', 'species', 'age', 'birthplace',
     'serviceBackground', 'assignmentHistory', 'profileSummary',
@@ -97,6 +98,15 @@ function peopleEventSchema(limits) {
     const personRef = { type: 'string', minLength: 1, maxLength: limits.interpreterPeopleRefCharacters };
     return {
         oneOf: [{
+            type: 'object', additionalProperties: false,
+            required: ['type', 'personRef', 'matterEffectId', 'sourceSlot', 'evidenceQuote'],
+            properties: {
+                type: { const: 'relationshipMatterResolved' }, personRef,
+                matterEffectId: { type: 'string', minLength: 1, maxLength: 300 },
+                sourceSlot: { const: 'previousAssistant' },
+                evidenceQuote: { type: 'string', minLength: 12, maxLength: MAX_EVIDENCE_QUOTE_LENGTH },
+            },
+        }, {
             type: 'object',
             additionalProperties: false,
             required: ['type', 'localRef', 'name', 'introductionSummary', 'sourceSlot', 'evidenceQuote'],
@@ -195,7 +205,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
     return {
         type: 'object',
         additionalProperties: false,
-        required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'abstained', 'time', ...(candidatePacket.scenePacing ? ['scenePacing'] : [])],
+        required: ['kind', 'assistantAcceptance', 'claims', 'peopleEvents', 'peopleCoverage', 'abstained', 'time', ...(candidatePacket.scenePacing ? ['scenePacing'] : [])],
         allOf: [durableSelectionBudgetSchema(candidateSelections.length, limits)],
         properties: {
             kind: { type: 'string', const: MISSION_EVIDENCE_INTERPRETATION_KIND },
@@ -206,6 +216,7 @@ export function createMissionAcceptedPairInterpretationSchema({ candidatePacket 
                 items: candidateSelections.length > 0 ? { oneOf: candidateSelections } : { type: 'object' },
             },
             abstained: { type: 'boolean' },
+            peopleCoverage: { type: 'string', enum: ['complete', 'overflow'] },
             peopleEvents: {
                 type: 'array',
                 maxItems: MAX_PEOPLE_EVENTS,
@@ -258,6 +269,12 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}, limits) {
                 || event.value.length > (event.field === 'profileSummary' ? limits.interpreterPeopleProfileCharacters : limits.interpreterPeopleFactCharacters)) {
                 errors.push(`${path} public fact value is invalid`);
             }
+        } else if (event.type === 'relationshipMatterResolved') {
+            for (const field of unknownFields(event, PEOPLE_RESOLUTION_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
+            const matter = (peopleContext.openMatters || []).find(item => item.matterEffectId === event.matterEffectId);
+            if (!matter || matter.personId !== event.personRef) errors.push(`${path} resolution references an unknown or stale matter`);
+            if (event.sourceSlot !== 'previousAssistant') errors.push(`${path} resolution requires an assistant outcome`);
+            if (value.slice(0, index).some(other => other?.type === event.type && other.matterEffectId === event.matterEffectId)) errors.push(`${path} duplicate matter resolution`);
         } else if (event.type === 'relationshipEvidence') {
             for (const field of unknownFields(event, PEOPLE_RELATIONSHIP_FIELDS)) errors.push(`${path} contains unknown field: ${field}`);
             if (typeof event.summary !== 'string' || !event.summary.trim() || event.summary.length > limits.interpreterPeopleSummaryCharacters) {
@@ -268,7 +285,7 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}, limits) {
         }
     }
     for (const [index, event] of value.entries()) {
-        if (!new Set(['publicFactLearned', 'relationshipEvidence']).has(event?.type)) continue;
+        if (!new Set(['publicFactLearned', 'relationshipEvidence', 'relationshipMatterResolved']).has(event?.type)) continue;
         if (typeof event.personRef !== 'string' || !event.personRef.trim() || event.personRef.length > limits.interpreterPeopleRefCharacters) {
             errors.push(`peopleEvents[${index}] personRef is invalid`);
         } else if ((peopleContext.knownPeople || []).length > 0
@@ -295,6 +312,7 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair,
         errors.push('assistantAcceptance is unknown');
     }
     if (typeof value.abstained !== 'boolean') errors.push('abstained must be a boolean');
+    if (value.peopleCoverage !== undefined && !['complete', 'overflow'].includes(value.peopleCoverage)) errors.push('peopleCoverage is invalid');
     errors.push(...acceptedPairTimeDecisionErrors(value.time, sourcePair, value.assistantAcceptance, timeContext, limits));
     errors.push(...peopleEventErrors(value.peopleEvents || [], peopleContext, sourcePair, limits));
     // Older outputs may omit pacing; runtime treats omission as a hold, never permission.
@@ -304,7 +322,7 @@ function interpretationErrors(value, candidatePacket, peopleContext, sourcePair,
         return errors;
     }
     if (value.claims.length > MAX_CLAIMS) errors.push(`claims must contain no more than ${MAX_CLAIMS} selections`);
-    if (value.claims.length + (value.peopleEvents || []).length > MAX_DURABLE_SELECTIONS) {
+    if (value.claims.length > MAX_DURABLE_SELECTIONS) {
         errors.push(`interpretation must contain no more than ${MAX_DURABLE_SELECTIONS} durable selections`);
     }
     if (value.abstained === true && value.claims.length > 0) errors.push('abstained output cannot contain claims');
@@ -353,6 +371,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     timeContext = {},
     limits = {},
     evidenceCatalog = null,
+    peopleRecoveryComplete = false,
 } = {}) {
     limits = normalizeAnalysisLimits(limits);
     const parsed = typeof value === 'string'
@@ -371,10 +390,9 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
     const claimCount = Array.isArray(boundedValue?.claims) ? boundedValue.claims.length : 0;
     const peopleCapacity = Math.min(limits.interpreterMaxPeopleEvents, Math.max(0, limits.interpreterMaxDurableSelections - claimCount));
     const rawPeopleEventCount = Array.isArray(boundedValue?.peopleEvents) ? boundedValue.peopleEvents.length : 0;
-    if (Array.isArray(boundedValue?.peopleEvents) && rawPeopleEventCount > peopleCapacity) {
-        boundedValue.peopleEvents = boundedValue.peopleEvents.slice(0, peopleCapacity);
-    }
-    const discardedOverflowPeopleEventCount = Math.max(0, rawPeopleEventCount - peopleCapacity);
+    const needsPeopleRecovery = !peopleRecoveryComplete && (boundedValue.peopleCoverage === 'overflow'
+        || rawPeopleEventCount > peopleCapacity
+        || (boundedValue.peopleCoverage === undefined && claimCount + rawPeopleEventCount >= limits.interpreterMaxDurableSelections));
     const errors = interpretationErrors(boundedValue, candidatePacket, peopleContext, sourcePair, timeContext, limits);
     if (errors.length > 0) return { ok: false, errors };
     const discardedAssistantClaimCount = boundedValue.assistantAcceptance === 'accepted'
@@ -397,7 +415,7 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
         || (peopleContext.knownPeople || []).length === 0
     ));
     const time = cloneJson(boundedValue.time);
-    return {
+    const result = {
         ok: true,
         value: {
             kind: MISSION_EVIDENCE_INTERPRETATION_KIND,
@@ -410,8 +428,15 @@ export function parseMissionAcceptedPairInterpretationOutput(value, {
         },
         discardedAssistantClaimCount,
         discardedAssistantPeopleEventCount: (boundedValue.peopleEvents || []).length - peopleEvents.length,
-        discardedOverflowPeopleEventCount,
+        discardedOverflowPeopleEventCount: 0,
     };
+    if (needsPeopleRecovery) {
+        return { ok: false, reasonCode: 'people-observation-overflow',
+            errors: ['People observations require a complete bounded recovery pass; none may be discarded.'],
+            recovery: result,
+        };
+    }
+    return result;
 }
 
 export function createMissionAcceptedPairInterpretationPrompt({
@@ -453,20 +478,22 @@ export function createMissionAcceptedPairInterpretationPrompt({
         'When candidate guidance explicitly defines a joint accepted-pair condition, currentPlayer may prove only its player-controlled acceptance or choice while the claim remains anchored to previousAssistant; this does not let player prose establish an NPC action or world outcome.',
         'Plans, attempts, guesses, questions, atmosphere, transient emotion, and mere mentions are not completed events or observed outcomes.',
         'Use each candidate guidance and exclusions literally. For clearOutcome, require a depicted settled result. When evidence is insufficient, omit the claim.',
-        `Every claim and People observation must include ${evidenceCatalog ? 'evidencePassageId selecting' : 'evidenceQuote:'} a verbatim 12–${limits.interpreterEvidenceQuoteCharacters} character excerpt from its selected source slot that directly proves the selection.`,
+        `Every claim and People observation must include ${evidenceCatalog ? 'evidencePassageId selecting' : 'evidenceQuote:'} a verbatim 12â€“${limits.interpreterEvidenceQuoteCharacters} character excerpt from its selected source slot that directly proves the selection.`,
         ...(!evidenceCatalog ? [
             'Copy one continuous excerpt exactly as written. Never join separated passages, insert ellipses, paraphrase, or repair the source inside evidenceQuote. Use a shorter intact excerpt when needed.',
             'Quotation marks are source characters. Do not add a closing quotation mark unless it occurs at the exact excerpt boundary.',
         ] : []),
         `Return no more than ${limits.interpreterMaxDurableSelections} durable selections total across claims and People observations, at most ${limits.interpreterMaxClaims} claims and ${limits.interpreterMaxPeopleEvents} People observations.`,
         'abstained refers to mission claims only. If claims is nonempty, set abstained to false. Set it to true only when claims is empty; never return claims together with abstained:true.',
+        'Review people.openMatters against the accepted outcomes. relationshipMatterResolved requires the exact supplied matterEffectId and personRef and an assistant quote proving that specific obligation is fulfilled, even through a different person. Plans, attempts, promises, player claims, and unrelated successes do not resolve it. Completion never implies attitude, trust, knowledge, or notification of the original person. Omitted matters remain unresolved.',
+        'Set peopleCoverage to complete only when every consequential People observation fits the shared budget. Otherwise set overflow; a separate bounded recovery pass will capture People observations without competing with mission claims. Never omit an observation and claim complete coverage.',
         'Observe People changes in the same response. A direct NPC encounter may create personIntroduced only when that NPC gives the player a usable name. A name merely mentioned by someone else does not create a person and must be omitted.',
         'Use a supplied known person ID whenever the subject matches the knownPeople directory. Never merge identities, invent a durable person ID, infer private information, or turn routine dialogue into relationship evidence.',
         'publicFactLearned is limited to public identity or professional facts explicitly established in the accepted source. relationshipEvidence must describe an observable interaction outcome, commitment, trust change, disagreement, obligation, or repair rather than sentiment speculation.',
         'Independently estimate elapsed story time across the complete accepted pair. The supplied footer is a proposal, not authority.',
         'Obey time.scope. When time.scope.previousAssistantTiming is opening-baseline, the previous assistant text establishes the clock at its final current-scene moment: do not charge its retrospective setup, earlier events, or transition to that baseline as new elapsed time. Count only time enacted by the current player after that baseline.',
         'Every time decision requires basis: explicitDuration, implicitAction, sceneTransition, noPassage, or unresolved. Use noPassage only with unchanged and unresolved only with indeterminate. Unresolved timing blocks settlement for recovery; do not use it merely because an ordinary action lacks an exact stopwatch duration.',
-        `For implicitAction, supply ${evidenceCatalog ? 'evidencePassageId selecting a passage' : 'sourceSlot and evidenceQuote'} (1–240 verbatim characters) showing newly enacted speech or action. Estimate net whole seconds contextually; never use word count, fixed per-message increments, or an activity-duration table. Advances beyond five minutes require explicit duration or scene-transition evidence; this is an evidence threshold, not a default duration or a clamp.`,
+        `For implicitAction, supply ${evidenceCatalog ? 'evidencePassageId selecting a passage' : 'sourceSlot and evidenceQuote'} (1â€“240 verbatim characters) showing newly enacted speech or action. Estimate net whole seconds contextually; never use word count, fixed per-message increments, or an activity-duration table. Advances beyond five minutes require explicit duration or scene-transition evidence; this is an evidence threshold, not a default duration or a clamp.`,
         `For explicitDuration or sceneTransition, add ${evidenceCatalog ? 'durationSeconds and durationEvidencePassageId' : 'durationSeconds, durationSourceSlot, and durationEvidenceQuote'}. The quote must be verbatim from that source and show enacted forward passage, not a refusal, question, plan, hypothetical, schedule, or past event. Convert explicit quantities accurately: ten minutes is 600 seconds. For a scene transition derive the forward interval from supplied current time and the stated destination; never copy an absolute clock into elapsedSeconds.`,
         `durationSeconds equals elapsedSeconds when the quoted interval covers the whole passage. For an explicit interval followed or preceded by additional immediate action, elapsedSeconds may include up to five additional minutes only with ${evidenceCatalog ? 'a separate evidencePassageId' : 'separate sourceSlot and evidenceQuote'} for that action. Do not count concurrent actions twice: a ten-minute wait with five minutes of work during it consumes ten minutes, not fifteen. For longer or multiple intervals quote the passage establishing their total; use unresolved when their relationship cannot be determined.`,
         'Account for both the previous-assistant response and the current player response. Mission-claim rejection or correction does not erase time consumed by visible speech or action.',
@@ -486,7 +513,7 @@ export function createMissionAcceptedPairInterpretationPrompt({
         '{"kind":"directive.missionEvidenceInterpretation.v1","assistantAcceptance":"accepted|rejected|corrected|ambiguous","claims":[{"candidateId":"policy.id","sourceSlot":"previousAssistant|currentPlayer","value":"only-when-candidate-allows","evidenceQuote":"verbatim source excerpt"}],"peopleEvents":[],"abstained":false,"time":{"decision":"unchanged","basis":"noPassage","elapsedSeconds":0,"reason":"no-fictional-time-passage","confidence":0.9}}',
         'Implicit-action time example only: {"decision":"advance","basis":"implicitAction","sourceSlot":"currentPlayer","evidenceQuote":"I answer the captain directly.","elapsedSeconds":8,"reason":"brief-spoken-reply","confidence":0.9}',
         'Explicit-duration time example only: {"decision":"advance","basis":"explicitDuration","elapsedSeconds":600,"reason":"explicit-wait","confidence":0.95,"durationSeconds":600,"durationSourceSlot":"currentPlayer","durationEvidenceQuote":"I wait exactly ten minutes before entering."}',
-    ].filter(line => !evidenceCatalog || (!line.includes('example only:') && !line.startsWith('{"kind"') && !line.startsWith('Also include scenePacing in the output:'))).join('\n').replace('1–240 verbatim characters', `1–${limits.timeEvidenceQuoteCharacters} verbatim characters`).replace('time.reason within 180 characters', `time.reason within ${limits.timeReasonCharacters} characters`);
+    ].filter(line => !evidenceCatalog || (!line.includes('example only:') && !line.startsWith('{"kind"') && !line.startsWith('Also include scenePacing in the output:'))).join('\n').replace('1â€“240 verbatim characters', `1â€“${limits.timeEvidenceQuoteCharacters} verbatim characters`).replace('time.reason within 180 characters', `time.reason within ${limits.timeReasonCharacters} characters`);
     const userPayload = {
         ...(evidenceCatalog ? { evidencePassages: evidencePassagePromptEntries(evidenceCatalog) } : {}),
         analysisLimits: cloneJson(limits),
@@ -539,6 +566,42 @@ export function createMissionAcceptedPairInterpretationPrompt({
             currentPlayerTextHash: sourcePair.currentPlayer?.textHash || null,
             proposedTimeFooter: timeContext.footer?.text || null,
         },
+    };
+}
+
+function createPeopleRecoveryRequest({ initialRequest, interpretation, sourcePair, peopleContext, limits }) {
+    const evidenceCatalog = initialRequest.evidenceCatalog;
+    const legacySchema = {
+        type: 'object', additionalProperties: false, required: ['kind', 'coverage', 'peopleEvents'],
+        properties: {
+            kind: { const: 'directive.peopleObservationRecovery.v1' },
+            coverage: { type: 'string', enum: ['complete', 'overflow'] },
+            peopleEvents: { type: 'array', maxItems: limits.interpreterMaxPeopleEvents, items: peopleEventSchema(limits) },
+        },
+    };
+    const jsonSchema = evidenceCatalog ? createEvidenceReferenceSchema(legacySchema) : legacySchema;
+    const payload = {
+        sourcePair: { previousAssistant: {text: String(sourcePair.previousAssistant?.text || '')}, currentPlayer: {text: String(sourcePair.currentPlayer?.text || '')} },
+        people: cloneJson(peopleContext), assistantAcceptance: interpretation.assistantAcceptance,
+        requiredObservations: cloneJson(interpretation.peopleEvents),
+        ...(evidenceCatalog ? { evidencePassages: evidencePassagePromptEntries(evidenceCatalog) } : {}),
+    };
+    if ([...JSON.stringify(payload)].length > limits.requestContextCharacters) throw new TypeError('people-recovery-context-overflow');
+    const systemPrompt = [
+        'You are the same accepted-pair Utility interpreter completing People coverage after a shared selection budget filled. Return only the closed recovery JSON object.',
+        'Preserve every requiredObservations entry exactly, including localRef and personRef. Add any missing consequential observations from the same sources. Do not revise mission claims, time, scene pacing, or assistant acceptance.',
+        'Use existing person IDs. Introductions require a directly encountered NPC giving the player a usable name in previousAssistant. A mention alone is insufficient. Never merge ambiguous identities or invent private facts.',
+        'publicFactLearned is restricted to the schema public fields explicitly established in the source. relationshipEvidence records observable commitments, disagreements, obligations, repairs, or interaction outcomes, not speculative feelings.',
+        'relationshipMatterResolved must name an exact supplied openMatters target and its person and cite an assistant outcome proving that obligation fulfilled. Outcomes through another person are allowed; plans, attempts, future promises, player claims, or unrelated outcomes are not. Infer no attitude, trust, knowledge, or notification.',
+        interpretation.assistantAcceptance === 'accepted' ? 'Both accepted source slots are available.' : 'previousAssistant was not accepted. Omit every observation from previousAssistant and any dependent introduction reference.',
+        evidenceCatalog ? EVIDENCE_REFERENCE_INSTRUCTIONS : 'Every observation requires one continuous verbatim evidenceQuote from its sourceSlot. Never paraphrase, join, or invent a quote.',
+        `Return at most ${limits.interpreterMaxPeopleEvents} observations. coverage must be overflow if complete coverage cannot fit; never silently discard observations.`,
+        `Output JSON Schema: ${JSON.stringify(jsonSchema)}`,
+    ].join('\n');
+    const user = JSON.stringify(payload);
+    return { ...initialRequest, kind: 'directive.peopleObservationRecoveryRequest.v1',
+        systemPrompt, prompt: `${systemPrompt}\n\n${user}`, messages: [{role:'system',content:systemPrompt},{role:'user',content:user}], jsonSchema,
+        metadata: {...initialRequest.metadata, phase: 'people-recovery'},
     };
 }
 
@@ -710,14 +773,53 @@ export function createMissionAcceptedPairInterpreter({
                 // Progress observers must not affect generation or validation.
             }
         }
-        const parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext, limits, evidenceCatalog: request.evidenceCatalog });
+        let parsed = parseMissionAcceptedPairInterpretationOutput(text, { candidatePacket, sourcePair, peopleContext, timeContext, limits, evidenceCatalog: request.evidenceCatalog });
+        let peopleRecoveryAttempted = false;
+        let recoveredPeopleEventCount = 0;
+        if (parsed.recovery) {
+            peopleRecoveryAttempted = true;
+            const initial = parsed.recovery;
+            try {
+                const recoveryRequest = createPeopleRecoveryRequest({ initialRequest: request, interpretation: initial.value, sourcePair, peopleContext, limits });
+                if (signal?.aborted) return {ok:false,status:'unavailable',reasonCode:'provider-aborted',diagnostics:{peopleRecoveryAttempted}};
+                const generation = await runWithTimeout(providerSignal => generationRouter.generate(
+                    MISSION_EVIDENCE_INTERPRETER_ROLE_ID, recoveryRequest,
+                    {timeoutMs: effectiveTimeoutMs, signal: providerSignal, allowVisibleOutputRetry:false, onAttempt},
+                ), effectiveTimeoutMs, signal);
+                if (signal?.aborted || generation?.ok !== true) {
+                    return {ok:false,status:'unavailable',reasonCode: signal?.aborted ? 'provider-aborted' : (generation?.reasonCode || generation?.error?.code || 'people-recovery-failed'),diagnostics:{peopleRecoveryAttempted}};
+                }
+                const decoded = parseStructuredJsonText(responseText(generation));
+                let recovered = decoded.value;
+                if (decoded.ok && request.evidenceCatalog) recovered = hydrateEvidenceReferences({value:recovered,catalog:request.evidenceCatalog,sourcePair});
+                if (!decoded.ok || !recovered || Array.isArray(recovered)
+                    || Object.keys(recovered).some(key => !['kind','coverage','peopleEvents'].includes(key))
+                    || recovered.kind !== 'directive.peopleObservationRecovery.v1'
+                    || recovered.coverage !== 'complete' || !Array.isArray(recovered.peopleEvents)) {
+                    parsed = {ok:false, errors:['People recovery must return complete coverage in the closed recovery schema.']};
+                } else {
+                    const eventKeys = new Set(recovered.peopleEvents.map(event => canonicalJson(event)));
+                    if (!initial.value.peopleEvents.every(event => eventKeys.has(canonicalJson(event)))) {
+                        parsed = {ok:false,errors:['People recovery omitted or changed an already observed event.']};
+                    } else {
+                        parsed = parseMissionAcceptedPairInterpretationOutput({...initial.value,peopleEvents:recovered.peopleEvents,peopleCoverage:'complete'},
+                            {candidatePacket,sourcePair,peopleContext,timeContext,limits,peopleRecoveryComplete:true});
+                        if (parsed.ok) recoveredPeopleEventCount = parsed.value.peopleEvents.length - initial.value.peopleEvents.length;
+                    }
+                }
+            } catch (error) {
+                parsed = {ok:false,errors:[error?.message === 'people-recovery-context-overflow' ? error.message : 'People recovery failed; accepted pair remains pending.']};
+            }
+        }
+        if (signal?.aborted) return {ok:false,status:'unavailable',reasonCode:'provider-aborted',diagnostics:{peopleRecoveryAttempted}};
         if (!parsed.ok) {
             generationRouter?.reportValidationFailure?.(MISSION_EVIDENCE_INTERPRETER_ROLE_ID, parsed.errors);
             return {
                 ok: false,
                 status: 'rejected',
-                reasonCode: 'invalid-output',
+                reasonCode: peopleRecoveryAttempted ? 'people-recovery-failed' : (parsed.reasonCode || 'invalid-output'),
                 diagnostics: {
+                    peopleRecoveryAttempted,
                     errorCount: parsed.errors.length,
                     errors: boundedValidationErrors(parsed.errors),
                     providerId: generation?.diagnostics?.providerId || generation?.response?.providerId || null,
@@ -739,7 +841,9 @@ export function createMissionAcceptedPairInterpreter({
                 sourcePair,
             }),
             diagnostics: {
-                candidateCount: candidatePacket.candidates.length,
+                candidateCount: (candidatePacket.candidates || []).length,
+                peopleRecoveryAttempted,
+                recoveredPeopleEventCount,
                 selectedClaimCount: parsed.value.claims.length,
                 discardedAssistantClaimCount: parsed.discardedAssistantClaimCount,
                 peopleEventCount: parsed.value.peopleEvents.length,

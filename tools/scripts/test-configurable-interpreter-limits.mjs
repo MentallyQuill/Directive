@@ -37,7 +37,7 @@ assert.ok(peopleEvents.every(event=>validatePeopleEvent(event).ok),'raised gener
 assert.equal(peopleEvents[0].introductionSummary,text);
 assert.equal(parseMissionAcceptedPairInterpretationOutput(peopleOutput,{candidatePacket,sourcePair,limits:{...peopleLimits,interpreterPeopleSummaryCharacters:200}}).ok,false);
 const reduced=parseMissionAcceptedPairInterpretationOutput(peopleOutput,{candidatePacket,sourcePair,limits:{...peopleLimits,interpreterMaxPeopleEvents:2}});
-assert.equal(reduced.value.peopleEvents.length,2,'existing deterministic people-overflow handling honors configured capacity');
+assert.equal(reduced.ok,false,'hard People capacity overflow must not silently discard observations');
 
 let payload;
 const interpreter=createMissionAcceptedPairInterpreter({generationRouter:{getAnalysisLimits:()=>limits,generate:async(role,request)=>{payload=request;return {ok:true,response:{text:JSON.stringify(interpretation)}};}}});

@@ -1,3 +1,4 @@
+import { projectRelationshipStates, createMatterResolutionSourceCheck } from '../people/relationship-state.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import { validateStorySettlement } from './story-settlement-contracts.mjs';
 import { selectCurrentStoryEpisodes } from './story-settlement.mjs';
@@ -39,8 +40,9 @@ const PROPOSAL_FIELDS = new Set([
     'effectIds',
     'relationshipUpdates',
     'characterMoments',
+    'openMatterResolutions',
 ]);
-const REQUIRED_PROPOSAL_FIELDS = [...PROPOSAL_FIELDS];
+const REQUIRED_PROPOSAL_FIELDS = [...PROPOSAL_FIELDS].filter(field => field !== 'openMatterResolutions');
 const REQUEST_FIELDS = new Set([
     'kind',
     'envelope',
@@ -52,6 +54,7 @@ const REQUEST_FIELDS = new Set([
     'recentSealedSummaries',
     'peopleEvents',
     'currentRelationships',
+    'assistantSourceContributionIds',
 ]);
 const ENVELOPE_FIELDS = new Set(['branchId', 'episodeId', 'baseRevision', 'checkpointSequence']);
 const REQUEST_CAPSULE_FIELDS = new Set([
@@ -68,7 +71,7 @@ const REQUEST_EVIDENCE_FIELDS = new Set(['contributionId', 'role', 'textHash', '
 const REQUEST_EFFECT_FIELDS = new Set(['id', 'type', 'targetId', 'value', 'sourceContributionIds']);
 const REQUEST_REFERENCE_FIELDS = new Set(['missionIds', 'questIds', 'participantIds', 'locationIds']);
 const REQUEST_SEALED_SUMMARY_FIELDS = new Set(['episodeId', 'sealedAtRevision', 'summary']);
-const REQUEST_RELATIONSHIP_FIELDS = new Set(['personId', 'posture', 'openMatter']);
+const REQUEST_RELATIONSHIP_FIELDS = new Set(['personId', 'posture', 'openMatter', 'openMatterId', 'blockedOpenMatterSourceIds', 'openMatterEvidenceEventIds']);
 const RELATIONSHIP_UPDATE_FIELDS = new Set(['personId', 'posture', 'openMatter', 'sourceContributionIds']);
 const CHARACTER_MOMENT_FIELDS = new Set(['personId', 'title', 'summary', 'sourceContributionIds']);
 const REQUEST_ROLES = new Set(['user', 'assistant', 'runtime', 'adjudicator']);
@@ -168,29 +171,25 @@ function projectedPeopleEvents(episode, limits = {}) {
 
 function projectedCurrentRelationships(settlement, episode, limits = {}) {
     const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
-    const byPerson = new Map();
-    for (const candidate of [...selectCurrentStoryEpisodes(settlement), episode]) {
-        for (const effect of candidate.effects || []) {
-            if (effect?.playerVisibility !== 'visible' || effect?.status !== 'active' || !isStableId(effect?.targetId)) continue;
-            if (!new Set(['character.relationshipPosture', 'character.relationshipOpenMatter']).has(effect.type)) continue;
-            const current = byPerson.get(effect.targetId) || {
-                personId: effect.targetId,
-                posture: null,
-                openMatter: null,
-            };
-            if (effect.type === 'character.relationshipPosture' && compactText(effect.value)) {
-                current.posture = compactText(effect.value);
-            }
-            if (effect.type === 'character.relationshipOpenMatter') {
-                current.openMatter = compactText(effect.value) || null;
-            }
-            byPerson.set(effect.targetId, current);
-        }
-    }
-    return [...byPerson.values()].slice(-MAX_RELATIONSHIPS);
+    const episodes = [...selectCurrentStoryEpisodes(settlement), episode];
+    const canResolveMatter = createMatterResolutionSourceCheck(episodes);
+    const evidence = projectedPeopleEvents(episode, limits);
+    return [...projectRelationshipStates(episodes).values()].slice(-MAX_RELATIONSHIPS).map(person => ({
+        personId: person.personId, posture: person.posture, openMatter: person.openMatter,
+        ...(person.openMatterId ? {
+            openMatterId: person.openMatterId,
+            openMatterEvidenceEventIds: evidence.filter(event => event.type === 'relationshipEvidence'
+                && event.evidenceQuote && canResolveMatter({personId:person.personId,matterEffectId:person.openMatterId,sourceContributionIds:event.sourceContributionIds})).map(event => event.id),
+        } : {}),
+        ...(person.blockedOpenMatterSourceIds.length ? { blockedOpenMatterSourceIds:
+            // Only request-local relationship sources can authorize an update.
+            person.blockedOpenMatterSourceIds.filter(id => projectedPeopleEvents(episode, limits).some(event =>
+                event.type === 'relationshipEvidence' && event.personId === person.personId && event.sourceContributionIds.includes(id))),
+        } : {}),
+    }));
 }
 
-function objectFieldErrors(value, allowed, label, errors) {
+function objectFieldErrors(value, allowed, label, errors, optional = []) {
     if (!isObject(value)) {
         errors.push(`${label} must be an object`);
         return false;
@@ -199,7 +198,7 @@ function objectFieldErrors(value, allowed, label, errors) {
         if (!allowed.has(field)) errors.push(`${label} contains unknown field: ${field}`);
     }
     for (const field of allowed) {
-        if (!Object.hasOwn(value, field)) errors.push(`${label} is missing required field: ${field}`);
+        if (!optional.includes(field) && !Object.hasOwn(value, field)) errors.push(`${label} is missing required field: ${field}`);
     }
     return true;
 }
@@ -220,7 +219,7 @@ function requestIdArray(value, { label, maximum, errors }) {
 export function validateEpisodeEvaluationRequest(value = {}, { limits = value.analysisLimits || {} } = {}) {
     const { MAX_VISIBLE_EFFECTS, MAX_REFERENCE_IDS, MAX_RECENT_SEALED_SUMMARIES, MAX_CONTINUE_SUMMARY_CHARS, MAX_SEALED_SUMMARY_CHARS, MAX_QUESTION_CHARS, MAX_PEOPLE_EVENTS, MAX_RELATIONSHIPS, MAX_RELATIONSHIP_TEXT_CHARS, MAX_MOMENT_TITLE_CHARS, MAX_MOMENT_SUMMARY_CHARS } = episodeLimits(limits);
     const errors = [];
-    if (!objectFieldErrors(value, Object.hasOwn(value, 'analysisLimits') ? new Set([...REQUEST_FIELDS, 'analysisLimits']) : REQUEST_FIELDS, 'request', errors)) return { ok: false, errors };
+    if (!objectFieldErrors(value, Object.hasOwn(value, 'analysisLimits') ? new Set([...REQUEST_FIELDS, 'analysisLimits']) : REQUEST_FIELDS, 'request', errors, ['assistantSourceContributionIds'])) return { ok: false, errors };
     if (value.kind !== EPISODE_EVALUATION_REQUEST_KIND) {
         errors.push(`request kind must be ${EPISODE_EVALUATION_REQUEST_KIND}`);
     }
@@ -378,6 +377,11 @@ export function validateEpisodeEvaluationRequest(value = {}, { limits = value.an
             errors.push(...result.errors.map((error) => `request peopleEvents[${index}] ${error}`));
         }
     }
+    if (value.assistantSourceContributionIds !== undefined && (!Array.isArray(value.assistantSourceContributionIds)
+        || value.assistantSourceContributionIds.some(id => !isStableId(id))
+        || value.assistantSourceContributionIds.length > (limits.episodeMaxPeopleEvents ?? MAX_PEOPLE_EVENTS) * 16)) {
+        errors.push('request assistantSourceContributionIds is invalid');
+    }
     if (!Array.isArray(value.currentRelationships)) {
         errors.push('request currentRelationships must be an array');
     } else {
@@ -387,10 +391,15 @@ export function validateEpisodeEvaluationRequest(value = {}, { limits = value.an
         const personIds = new Set();
         for (const [index, relationship] of value.currentRelationships.entries()) {
             const label = `request currentRelationships[${index}]`;
-            if (!objectFieldErrors(relationship, REQUEST_RELATIONSHIP_FIELDS, label, errors)) continue;
+            if (!objectFieldErrors(relationship, REQUEST_RELATIONSHIP_FIELDS, label, errors, ['openMatterId', 'blockedOpenMatterSourceIds', 'openMatterEvidenceEventIds'])) continue;
             if (!isStableId(relationship.personId)) errors.push(`${label} personId must be stable`);
             else if (personIds.has(relationship.personId)) errors.push('request currentRelationships personIds must be unique');
             personIds.add(relationship.personId);
+            if (relationship.openMatterEvidenceEventIds !== undefined) requestIdArray(relationship.openMatterEvidenceEventIds, {label: `${label} eligible evidence`, maximum: MAX_PEOPLE_EVENTS, errors});
+            if (relationship.openMatterId !== undefined && (!isStableId(relationship.openMatterId) || !relationship.openMatter)) errors.push(`${label} openMatterId is invalid`);
+            if (relationship.blockedOpenMatterSourceIds !== undefined && (!Array.isArray(relationship.blockedOpenMatterSourceIds)
+                || relationship.blockedOpenMatterSourceIds.some(id => !isStableId(id))
+                || relationship.blockedOpenMatterSourceIds.length > (limits.episodeMaxPeopleEvents ?? MAX_PEOPLE_EVENTS) * 16)) errors.push(`${label} blocked sources are invalid`);
             for (const field of ['posture', 'openMatter']) {
                 if (relationship[field] !== null
                     && (typeof relationship[field] !== 'string'
@@ -457,6 +466,8 @@ export function createEpisodeEvaluationRequest({ settlement = {}, limits = {} } 
         recentSealedSummaries,
         peopleEvents: projectedPeopleEvents(episode, limits),
         currentRelationships: projectedCurrentRelationships(settlement, episode, limits),
+        assistantSourceContributionIds: [...new Set(projectedPeopleEvents(episode, limits).flatMap(event => event.sourceContributionIds))]
+            .filter(id => episode.contributions.some(source => source.id === id && source.role === 'assistant')),
     };
     const requestValidation = validateEpisodeEvaluationRequest(request, { limits });
     if (!requestValidation.ok) throw new TypeError(requestValidation.errors.join('\n'));
@@ -647,6 +658,33 @@ function proposalErrors(value, request, limits = request.analysisLimits || {}) {
         errors,
         limits,
     });
+    for (const update of relationshipUpdates) {
+        const current = request.currentRelationships.find(person => person.personId === update.personId);
+        const blocked = new Set(current?.blockedOpenMatterSourceIds || []);
+        const ownSources = relationshipSourceIdsByPerson.get(update.personId) || new Set();
+        if (update.openMatter !== null && update.openMatter !== current?.openMatter && blocked.size
+            && !(update.sourceContributionIds || []).some(id => ownSources.has(id) && !blocked.has(id))) {
+            errors.push('new open matter requires relationship evidence after its prior resolution');
+        }
+    }
+    const resolutions = value.openMatterResolutions ?? [];
+    if (!Array.isArray(resolutions) || resolutions.length > MAX_RELATIONSHIPS) {
+        errors.push('openMatterResolutions must be a bounded array');
+    } else {
+        const seen = new Set();
+        for (const resolution of resolutions) {
+            if (!objectFieldErrors(resolution, new Set(['personId','matterEffectId','evidenceEventId']), 'openMatterResolutions entry', errors)) continue;
+            const current = request.currentRelationships.find(person => person.personId === resolution.personId);
+            if (!isStableId(resolution.matterEffectId) || current?.openMatterId !== resolution.matterEffectId || !current?.openMatter) errors.push('openMatterResolutions target is unknown or stale');
+            if (seen.has(resolution.matterEffectId)) errors.push('openMatterResolutions duplicate target');
+            seen.add(resolution.matterEffectId);
+            if (!(current?.openMatterEvidenceEventIds || []).includes(resolution.evidenceEventId)) errors.push('openMatterResolutions evidence is earlier than its obligation or unavailable');
+            const event = request.peopleEvents.find(event => event.id === resolution.evidenceEventId);
+            if (event?.type !== 'relationshipEvidence' || !event.evidenceQuote || !event.evidenceQuoteHash
+                || !event.sourceContributionIds.every(id => (request.assistantSourceContributionIds || []).includes(id))) errors.push('openMatterResolutions requires quoted assistant relationship evidence');
+            if (relationshipUpdates.some(update => update.personId === resolution.personId)) errors.push('openMatterResolutions cannot also rewrite the target relationship');
+        }
+    }
     const characterMoments = validateCharacterMoments(value.characterMoments, {
         allowedPeopleIds,
         allowedSourceIds,
@@ -717,7 +755,7 @@ function proposalErrors(value, request, limits = request.analysisLimits || {}) {
         if (value.summary !== null) errors.push('abstain summary must be null');
         if (value.foregroundQuestion !== null) errors.push('abstain foregroundQuestion must be null');
         if (sourceContributionIds.length > 0 || effectIds.length > 0) errors.push('abstain cannot cite sources or effects');
-        if (relationshipUpdates.length > 0 || characterMoments.length > 0) {
+        if (relationshipUpdates.length > 0 || characterMoments.length > 0 || (Array.isArray(resolutions) && resolutions.length > 0)) {
             errors.push('abstain cannot update relationships or create character moments');
         }
     }
@@ -764,6 +802,7 @@ export function createEpisodeEvaluationPrompt({ request = {}, limits = request.a
         'Treat one continuous encounter as one episode. No memory is a valid result when nothing durable changed.',
         'Never use topic, keyword, speaker, sentiment, token count, or elapsed time as boundary evidence.',
         'Player text proves intent, speech, or commitment only. It does not prove that an attempted action succeeded. Accepted assistant evidence may establish depicted outcomes.',
+        'Reconcile currentRelationships open matters against accepted outcomes in peopleEvents. openMatterResolutions uses exact personId, matterEffectId from openMatterId, and evidenceEventId of a quoted assistant-backed relationshipEvidence event proving that specific matter completed, possibly through another person. Use only the target openMatterEvidenceEventIds; earlier outcomes cannot fulfill later obligations. Plans, attempts, promises, and unrelated successes are insufficient. Do not also update that person relationship; resolution changes no posture, trust, or knowledge. Old evidence in blockedOpenMatterSourceIds cannot establish new unfinished business.',
         'Use peopleEvents as source-backed relationship evidence. Update a person relationship posture only when the evidence changes the durable current stance toward the player; use openMatter for one live unresolved matter, or null when none remains.',
         'Preserve comprehensive relationship history through characterMoments only when sealing. A defining moment is a durable relationship turning point, not routine sentiment or every interaction. Emit at most one defining moment per person in this sealed episode; there is no lifetime limit.',
         'A continue decision may update relationship posture but must not create characterMoments. An abstain decision must leave both arrays empty.',
@@ -825,6 +864,13 @@ export function createEpisodeEvaluationPrompt({ request = {}, limits = request.a
                 },
                 effectIds: {
                     type: 'array', uniqueItems: true, items: { type: 'string' }, maxItems: MAX_VISIBLE_EFFECTS,
+                },
+                openMatterResolutions: {
+                    type: 'array', maxItems: MAX_RELATIONSHIPS,
+                    items: { type: 'object', additionalProperties: false,
+                        required: ['personId', 'matterEffectId', 'evidenceEventId'],
+                        properties: { personId: {type:'string',minLength:1}, matterEffectId: {type:'string',minLength:1}, evidenceEventId: {type:'string',minLength:1} },
+                    },
                 },
                 relationshipUpdates: {
                     type: 'array',

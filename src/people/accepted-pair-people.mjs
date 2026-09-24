@@ -1,3 +1,5 @@
+import { projectRelationshipStates } from './relationship-state.mjs';
+import { normalizeAnalysisLimits } from '../generation/analysis-limits.mjs';
 import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 import { selectCurrentStoryEpisodes } from '../story/story-settlement.mjs';
 import {
@@ -24,6 +26,7 @@ function currentEpisodes(settlement = {}) {
 export function createPeopleInterpretationContext({
     crewDataset = {},
     storySettlement = {},
+    limits = {},
 } = {}) {
     const known = new Map();
     for (const officer of crewDataset.officers || []) {
@@ -51,7 +54,20 @@ export function createPeopleInterpretationContext({
             if (event.field === 'role') person.role = compact(event.value);
         }
     }
+    const budget = normalizeAnalysisLimits(limits);
+    const matters = [...projectRelationshipStates(currentEpisodes(storySettlement)).values()]
+        .filter(person => person.openMatterId && known.has(person.personId))
+        .sort((a, b) => b.openMatterOrder - a.openMatterOrder);
+    const openMatters = matters.filter(person => person.openMatter.length <= budget.episodeMaxRelationshipTextCharacters)
+        .slice(0, budget.episodeMaxRelationships).map(person => ({
+        personId: person.personId,
+        matterEffectId: person.openMatterId,
+        text: person.openMatter,
+        sourceContributionIds: person.openMatterSourceContributionIds,
+    }));
     return {
+        openMatters,
+        omittedOpenMatterCount: matters.length - openMatters.length,
         knownPeople: [...known.values()].sort((left, right) => left.id.localeCompare(right.id)),
     };
 }
@@ -142,6 +158,13 @@ export function materializeAcceptedPairPeopleEvents({
                 field: observation.field,
                 value: compact(observation.value),
             };
+        }
+        if (observation.type === 'relationshipMatterResolved') {
+            const matter = (peopleContext.openMatters || []).find(item => item.matterEffectId === observation.matterEffectId);
+            if (observation.sourceSlot !== 'previousAssistant' || matter?.personId !== personId) {
+                throw new TypeError('People resolution must reference a current matter and assistant outcome');
+            }
+            return { ...base, matterEffectId: observation.matterEffectId };
         }
         return { ...base, summary: compact(observation.summary) };
     });

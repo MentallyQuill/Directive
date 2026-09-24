@@ -19,3 +19,19 @@ The existing episode evaluator reviews all people involved in a checkpoint toget
 The player People projection contains the complete surviving public record and every visible defining moment. The detail UI omits absent fields and renders each moment as a collapsed native disclosure that expands individually.
 
 The narration packet is intentionally smaller: compact identity, current posture/open matter, and at most eight recent defining moments globally. Comprehensive storage and selective recall are separate concerns, so relationship history can grow without creating unbounded prompts or per-person model calls.
+
+## Resolving unfinished business
+
+The ID of the current visible `character.relationshipOpenMatter` effect identifies the exact matter. Accepted-pair interpretation receives a bounded directory of those matters. A quoted, accepted assistant outcome may produce a `relationshipMatterResolved` event, including when someone else fulfills the original obligation. An event clears only its named current matter. It does not change posture, trust, knowledge, audience access, or notification of the person.
+
+The existing episode evaluator can also reconcile an open matter against a quoted assistant-backed People evidence event. This resolution is a separate operation from posture updates. Old evidence cannot recreate an obligation after its resolution; a new matter needs later relationship evidence. Plans, attempts, promises, player claims of success, and unrelated outcomes are insufficient.
+
+All resolution events remain in Story Settlement. Removing their source reopens the surviving original matter; replacing that matter cannot let an old resolution clear the new one. Recovered episodes retain their original story order when relationships are folded, so repairing an old source cannot overwrite a newer relationship. Exact event and review replays are idempotent; conflicting replays are rejected. Old saves load without migration.
+
+## Observation limits and recovery
+
+The normal Utility response shares a configured selection budget between mission claims and People. It now declares People coverage `complete` or `overflow`. An overflowing result, or a saturated legacy result without a coverage declaration, triggers at most one People-only request through the same Utility role. This request uses the configured People-event bound and preserves every initially valid observation; it cannot change mission claims, acceptance, time, or pacing.
+
+The original output is validated in full, including its tail. Invalid, incomplete, over-limit, cancelled, or failed recovery leaves the accepted pair pending with explicit diagnostics. Nothing is partially settled. Normal retries can recover the pair. Complete in-budget results make no extra call. Semantic omissions by a model are still possible even when it reports complete coverage.
+
+Open-matter context uses the configured episode relationship count/text bounds, reports omitted count, and does not trim stored history. No live saves are automatically reprocessed by this change.

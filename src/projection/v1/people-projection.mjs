@@ -1,3 +1,4 @@
+import { projectRelationshipStates } from '../../people/relationship-state.mjs';
 import { selectCurrentStoryEpisodes } from '../../story/story-settlement.mjs';
 
 export const PEOPLE_PLAYER_PROJECTION_KIND = 'directive.peoplePlayerProjection.v1';
@@ -15,22 +16,6 @@ function currentEpisodes(storySettlement = {}) {
         episode?.id === storySettlement.activeEpisode && episode?.status === 'open'
     ));
     return active ? [...sealed, structuredClone(active)] : sealed;
-}
-
-function latestVisibleRelationshipValue(episodes, characterId, type) {
-    for (let episodeIndex = episodes.length - 1; episodeIndex >= 0; episodeIndex -= 1) {
-        const effects = episodes[episodeIndex].effects || [];
-        for (let effectIndex = effects.length - 1; effectIndex >= 0; effectIndex -= 1) {
-            const effect = effects[effectIndex];
-            if (effect?.type === type
-                && effect?.targetId === characterId
-                && effect?.playerVisibility === 'visible'
-                && effect?.status === 'active') {
-                return compact(effect.value) || null;
-            }
-        }
-    }
-    return null;
 }
 
 function momentsByCharacter(episodes) {
@@ -142,6 +127,7 @@ export function createPeoplePlayerProjection({
     const crewDataset = runtimeAssets.crewDataset || {};
     const episodes = currentEpisodes(storySettlement);
     const moments = momentsByCharacter(episodes);
+    const relationships = projectRelationshipStates(episodes);
     const peopleById = new Map();
     for (const officer of crewDataset.officers || []) {
         peopleById.set(officer.id, authoredPerson(officer, crewDataset));
@@ -173,16 +159,8 @@ export function createPeoplePlayerProjection({
         ]);
         return {
             ...person,
-            relationshipPosture: latestVisibleRelationshipValue(
-                episodes,
-                person.id,
-                'character.relationshipPosture',
-            ),
-            relationshipOpenMatter: latestVisibleRelationshipValue(
-                episodes,
-                person.id,
-                'character.relationshipOpenMatter',
-            ),
+            relationshipPosture: relationships.get(person.id)?.posture || null,
+            relationshipOpenMatter: relationships.get(person.id)?.openMatter || null,
             moments: personMoments,
             sourceRefs: {
                 ...person.sourceRefs,
