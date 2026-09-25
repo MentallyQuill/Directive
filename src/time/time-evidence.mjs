@@ -38,7 +38,7 @@ export function explicitDurationSeconds(quote = '') {
   const text = String(quote);
   if (/\d\s*[-–—]\s*\d/.test(text)
     || new RegExp('\\b' + QUANTITY_WORD + '\\s+to\\s+' + QUANTITY_WORD + '\\b', 'i').test(text)) return null;
-  if (/\b(?:about|around|roughly|approximately|nearly|almost|at least|at most|up to|between|or|million|billion)\b/i.test(text)) return null;
+  if (/\b(?:about|around|roughly|approximately|perhaps|nearly|almost|at least|at most|up to|between|or|million|billion)\b/i.test(text)) return null;
   const matches = [...text.matchAll(new RegExp('\\b(' + DURATION_QUANTITY + ')\\s+(?:(?:more|additional)\\s+)?(' + DURATION_UNIT + ')\\b', 'gi'))];
   if (matches.length !== 1) return null;
   const match = matches[0];
@@ -89,7 +89,30 @@ function containingRange(source, anchorIndex, anchorLength, boundaries) {
   const end = boundaryOffsets.length > 0
     ? anchorIndex + anchorLength + Math.min(...boundaryOffsets) + 1
     : source.length;
-  return { text: source.slice(start, end).trim(), start };
+  return { text: source.slice(start, end).trim(), start, end };
+}
+
+function elapsedWaitEndsAtPastEvent(directSuffix, sentencePrefix, sentenceSuffix) {
+  // A direct "when" can close an elapsed past-progressive interval, not just
+  // qualify a future action. Keep this exception narrow; other conditional
+  // markers, parentheticals, modals, and historical context retain their guards.
+  const prefix = stripLeadingRoleplayWrapper(sentencePrefix);
+  // Require a direct assertion, not an embedded action in "suppose she ...",
+  // "she said ...", or a nominal duration discussed elsewhere in the sentence.
+  const progressive = prefix.match(/^(?:[A-Z][a-z'’-]+|I|we|you|he|she|they|[Tt]he\s+[a-z]+)\s+(?:had\s+been|was|were)\s+[a-z]+ing\b/);
+  if (!progressive) return false;
+  const attachment = prefix.slice(progressive.index + progressive[0].length).trim();
+  // Only a direct interval (with an optional location) is unambiguous here.
+  // Discussing a delay or asking to wait does not enact that embedded duration.
+  if (!/^(?:(?:near|at|in|beside|by|on)\s+(?:(?:the|a|an)\s+)?[a-z]+\s+)?for\s*(?:(?:about|around|roughly|approximately|perhaps|nearly|almost|exactly)\s*)?$/i.test(attachment)) return false;
+  if (NON_ENACTED_PREFIX.test(sentencePrefix)
+    || /\b(?:(?:wasn|weren|isn|aren|hadn|hasn|haven)['’]t|false|untrue|nobody|no\s+one)\b/i.test(sentencePrefix)
+    || /["“”]/.test(stripLeadingRoleplayWrapper(sentencePrefix))) return false;
+  // Do not lose a governing qualifier when the event clause ends at a comma.
+  if (NON_ENACTED_PREFIX.test(sentenceSuffix)
+    || /\b(?:if|unless|provided|assuming|ago)\b|\?/i.test(sentenceSuffix)) return false;
+  const event = directSuffix.match(/^\s+when\s+([^.!?;,—]+)/i)?.[1]?.trim();
+  return Boolean(event && !NON_ENACTED_PREFIX.test(event) && /\b[a-z]+ed$/i.test(event));
 }
 
 export function inspectEnactedDurationEvidence({
@@ -106,6 +129,9 @@ export function inspectEnactedDurationEvidence({
   const prefix = clause.text.slice(0, anchorOffset);
   const suffix = clause.text.slice(anchorOffset + anchor[0].length);
   const directSuffix = location.source.slice(sourceAnchorIndex + anchor[0].length);
+  const elapsedWhen = EXPLICIT_DURATION.test(anchor[0]) && elapsedWaitEndsAtPastEvent(directSuffix,
+    location.source.slice(sentence.start, sourceAnchorIndex),
+    location.source.slice(sourceAnchorIndex + anchor[0].length, sentence.end));
   const sentenceText = stripLeadingRoleplayWrapper(sentence.text);
   const clauseText = stripLeadingRoleplayWrapper(clause.text);
   // Retain exclusions across a comma without requiring an action verb or
@@ -120,8 +146,8 @@ export function inspectEnactedDurationEvidence({
   if (clause.text.includes('?')) return { ok: false, reasonCode: 'duration-evidence-question', context: clause.text };
   if (NON_ENACTED_PREFIX.test(prefix)
     || PAST_SUFFIX.test(suffix)
-    || NON_ENACTED_SUFFIX.test(suffix)
-    || DIRECT_CONDITIONAL_SUFFIX.test(directSuffix)
+    || (NON_ENACTED_SUFFIX.test(suffix) && !elapsedWhen)
+    || (DIRECT_CONDITIONAL_SUFFIX.test(directSuffix) && !elapsedWhen)
     || DIRECT_FUTURE_SUFFIX.test(directSuffix)) {
     return { ok: false, reasonCode: 'duration-evidence-not-enacted', context: clause.text };
   }

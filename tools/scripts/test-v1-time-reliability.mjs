@@ -9,6 +9,70 @@ import { openingDurationCases } from '../fixtures/v1-time-reliability-cases.mjs'
 import { createFakeDirectiveHost, createFakeGenerationClient } from '../../src/hosts/fake/fake-host.mjs';
 import { createDirectiveRuntimeApp } from '../../src/runtime/runtime-app.mjs';
 import { loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
+import { explicitDurationSeconds, inspectEnactedDurationEvidence } from '../../src/time/time-evidence.mjs';
+
+test('elapsed past-progressive waits may end when a narrated event occurs', () => {
+  for (const text of [
+    'She had been standing near the console for perhaps three minutes when the door chime sounded — a single, clean tone, followed by a brief pause and then the door opening without waiting for a response.',
+    'They had been talking for three minutes when the captain arrived.',
+    'She was waiting for three minutes when the door opened.',
+    'They were working for three minutes when the lights flickered.',
+  ]) {
+    assert.equal(inspectEnactedDurationEvidence({ sourceText: text, evidenceQuote: text }).ok, true, text);
+    const sourcePair = { previousAssistant: { text }, currentPlayer: { text: 'I greet them.' } };
+    const result = parse(interpretation({ decision: 'advance', elapsedSeconds: 180, durationSeconds: 180,
+      durationSourceSlot: 'previousAssistant', durationEvidenceQuote: text,
+    }), { candidatePacket: { candidates: [] }, sourcePair });
+    assert.equal(result.ok, true, JSON.stringify(result.errors));
+  }
+});
+
+test('when clauses do not admit prospective, conditional, negated, or retrospective waits', () => {
+  for (const text of [
+    'I wait three minutes when the captain agrees.',
+    'She will have been waiting for three minutes when the captain arrives.',
+    'She would have been waiting for three minutes when the captain arrived.',
+    'If cleared, she had been waiting for three minutes when the captain arrived.',
+    'She had not been waiting for three minutes when the captain arrived.',
+    'Yesterday she had been waiting for three minutes when the captain arrived.',
+    'She had been waiting for three minutes when the captain would arrive.',
+    'She had been waiting for three minutes when the captain arrives.',
+    'She had been waiting for three minutes, if the captain agreed.',
+    'She had been waiting for three minutes (when the captain agreed).',
+  ]) {
+    assert.equal(inspectEnactedDurationEvidence({ sourceText: text, evidenceQuote: text }).ok, false, text);
+  }
+});
+
+test('perhaps is an approximate quantity, not a deterministic exact-duration conversion', () => {
+  assert.equal(explicitDurationSeconds('She stood there for perhaps three minutes.'), null);
+  assert.equal(explicitDurationSeconds('She stood there for three minutes.'), 180);
+});
+
+for (const [label,text] of [
+  ['negated assertion', "It wasn't true that she had been waiting for three minutes when the captain arrived."],
+  ['curly negated assertion', 'It wasn’t true that she had been waiting for three minutes when the captain arrived.'],
+  ['quoted historical wait', 'She said, "Yesterday, I had been waiting for three minutes when the captain arrived."'],
+  ['trailing condition', 'She had been waiting for three minutes when the captain arrived, provided the captain had agreed.'],
+  ['trailing historical night', 'She had been waiting for three minutes when the captain arrived — last night.'],
+  ['trailing historical day', 'She had been waiting for three minutes when the captain arrived, yesterday.'],
+  ['trailing historical ago', 'She had been waiting for three minutes when the captain arrived, two days ago.'],
+  ['duration of discussed subject', 'She had been discussing a delay of three minutes when the captain arrived.'],
+  ['requested future wait', 'She had been asking to wait for three minutes when the captain arrived.'],
+  ['embedded gerund', 'She had been talking about waiting for three minutes when the captain arrived.'],
+  ['timer setting', 'She had been looking at a timer set for three minutes when the captain arrived.'],
+  ['supposed interval', 'Suppose she had been waiting for three minutes when the captain arrived.'],
+  ['imagined interval', 'Imagine she had been waiting for three minutes when the captain arrived.'],
+  ['supposed clause', 'Suppose, she had been waiting for three minutes when the captain arrived.'],
+]) test(`temporal when preserves governing context: ${label}`, () => {
+  for (const quote of [text, 'three minutes']) {
+    assert.equal(inspectEnactedDurationEvidence({sourceText:text,evidenceQuote:quote}).ok,false,quote);
+    const result=parse(interpretation({decision:'advance',elapsedSeconds:180,durationSeconds:180,
+      durationSourceSlot:'previousAssistant',durationEvidenceQuote:quote,
+    }),{candidatePacket:{candidates:[]},sourcePair:{previousAssistant:{text},currentPlayer:{text:'I greet them.'}}});
+    assert.equal(result.ok,false,quote);
+  }
+});
 
 test('a ten-minute source cannot validate as one hour', () => {
   const result = parse(interpretation({
