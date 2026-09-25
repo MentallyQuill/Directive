@@ -5,6 +5,7 @@ import { createV1CampaignSave, storeV1CampaignSave, loadV1CampaignSave } from '.
 import { createAshesInitialState, loadAshesRuntimeAssets } from './v1-test-fixtures.mjs';
 import { withCampaignTimelineLease } from '../../src/runtime/timeline-transaction-service.mjs';
 import { normalizeSillyTavernMessagePayload } from '../../src/hosts/sillytavern/chat-adapter.mjs';
+import { captureHostTranscriptSnapshot } from '../../src/hosts/transcript-snapshot-contract.mjs';
 
 const assets = loadAshesRuntimeAssets();
 const now = '2026-09-16T12:00:00.000Z';
@@ -61,6 +62,35 @@ for (const heldMethod of ['stripAssistantTimeFooter', 'attachAssistantRuntimeMet
 }
 
 console.log('PASS public runtime transcript finalization admission');
+
+{
+  const r = await rig();
+  r.chat.pushAssistantMessage({ hostMessageId: 'assistant.continue-timer', text: 'Ready.' });
+  let continued = false;
+  // The fake chat JSON-clones rows. Sample the actual native Date shape through
+  // the real snapshot contract instead of letting that clone mask the defect.
+  r.host.chat.captureCurrentTranscriptSnapshot = () => {
+    const rows = r.chat.messages();
+    if (continued) rows.at(-1).gen_started = new Date(Number.NaN);
+    return captureHostTranscriptSnapshot({ hostId: 'fake',
+      nativeIdentity: { entityType: 'character', entityId: '7', chatId: r.chat.getCurrentChatId() },
+      directiveBinding: null, rows });
+  };
+  r.app.handleHostGenerationStarted({ type: 'continue' });
+  continued = true; // Native mutates its timer after STARTED, before interception.
+  const prepared = await r.app.getChatTurnOrchestrator().interceptGeneration({ type: 'continue', recoveryIntent: 'native' });
+  assert.equal(prepared.abortDefaultGeneration, false);
+  const rows = r.chat.messages();
+  rows.at(-1).text = 'Ready. The checks are complete.';
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), rows);
+  const beforeEnd = await r.state();
+  await r.app.handleHostGenerationEnded(1); // Native completion gives chat length.
+  assert.equal(r.app.getTranscriptFinalizationStatus(), null,
+    'a native invalid Continue timer must not strand the transcript owner');
+  assert.deepEqual(await r.state(), beforeEnd, 'completion does not settle or change canonical state');
+  const saved = await r.app.saveGame({ name: 'Recovered Continue timer' });
+  assert.ok(saved.checkpoint?.id, 'Save is admitted immediately after completion');
+}
 
 for (const variant of ['missing-extra', 'empty-extra', 'native-extra', 'null-extra', 'null-reasoning', 'false-reasoning', 'text-change', 'metadata-change', 'reasoning-change', 'reasoning-erased', 'earlier-row', 'assistant-before', 'user-tail', 'no-output', 'unchanged-no-output']) {
   const r = await rig();

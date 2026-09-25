@@ -91,6 +91,23 @@ assert.deepEqual(snapshot.rows, oracle, 'detached snapshot cannot follow later n
 assert.equal(snapshot.directiveBinding.saveId, 'save.owner');
 assert.deepEqual(supported(context(oracle)).rows, snapshot.rows, 'native save/reload Date conversion preserves snapshot data');
 
+// Native Continue subtracts Number(ISO-string) timestamps after reload, making
+// its generation timer an invalid Date. Native JSON persistence writes null.
+{
+  const rows = JSON.parse(JSON.stringify(nativeRows()));
+  const reply = rows[2];
+  const invalidStart = new Date(Date.now() - (Number(reply.gen_finished) - Number(reply.gen_started)));
+  assert.ok(Number.isNaN(invalidStart.getTime()));
+  reply.gen_started = invalidStart;
+  reply.swipe_info[0].gen_started = invalidStart;
+  reply.swipe_info[0].gen_finished = new Date(Number.NaN);
+  const persisted = JSON.parse(JSON.stringify(rows));
+  assert.equal(persisted[2].gen_started, null);
+  assert.deepEqual(supported(context(rows)).rows, persisted,
+    'Continue timer failure must not prevent an exact persisted-row snapshot');
+  assert.equal(reply.gen_started, invalidStart, 'sampling does not mutate the native timer');
+}
+
 const previousGlobalChat = globalThis.chat;
 try {
   globalThis.chat = Array.from({ length: 20 }, () => ({ mes: 'stale global source' }));
@@ -135,7 +152,8 @@ for (const build of [
   () => ({ mes: 'x', unsupported: 1n }),
   () => ({ mes: 'x', unsupported: new Map() }),
   () => ({ mes: 'x', unsupported: new Date(0) }),
-  () => ({ mes: 'x', gen_started: new Date(Number.NaN) }),
+  () => ({ mes: 'x', unsupported: new Date(Number.NaN) }),
+  () => ({ mes: 'x', extra: { gen_started: new Date(Number.NaN) } }),
   () => ({ mes: 'x', gen_started: Object.assign(new Date(0), { toJSON() { getterCalls++; return 'fake'; } }) }),
   () => ({ mes: 'x', gen_started: new (class extends Date {})(0) }),
 ]) unsupported(context([build()]));

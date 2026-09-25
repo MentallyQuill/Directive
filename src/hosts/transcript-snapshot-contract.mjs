@@ -93,8 +93,10 @@ export function captureHostTranscriptSnapshot(input = {}) {
         if (prototype === Date.prototype && isTimestamp(path)) {
           // Fresh native generation uses Dates; saved/reloaded rows use ISO text.
           // Only these timestamp paths may normalize through trusted intrinsics.
-          if (Reflect.ownKeys(value).length || !Number.isFinite(dateTime.call(value))) fail('A native generation timestamp is unsupported.');
-          result = scalar(dateIso.call(value));
+          if (Reflect.ownKeys(value).length) fail('A native generation timestamp is unsupported.');
+          // Continue can subtract reloaded ISO strings and produce an invalid
+          // Date. Match native JSON persistence (null), without invoking toJSON.
+          result = scalar(Number.isFinite(dateTime.call(value)) ? dateIso.call(value) : null);
         } else {
           const array = Array.isArray(value);
           if (array ? prototype !== Array.prototype : ![Object.prototype, null].includes(prototype)) fail('The native transcript contains a custom object.');
