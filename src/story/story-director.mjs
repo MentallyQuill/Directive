@@ -436,7 +436,7 @@ function normalizedDiagnosticText(value) {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : null;
 }
 
-function quoteFailureDiagnostic(change, changeIndex, request, limits = {}) {
+function quoteFailureDiagnostic(change, changeIndex, request, limits = {}, fieldPath = null) {
   if (!['previousAssistant', 'currentPlayer'].includes(change?.sourceSlot)) return null;
   const quote = normalizedDiagnosticText(change?.evidenceQuote);
   const source = normalizedDiagnosticText(request?.pendingPair?.[change.sourceSlot]?.text);
@@ -449,13 +449,21 @@ function quoteFailureDiagnostic(change, changeIndex, request, limits = {}) {
   if (reason === null) return null;
   const sourceSlot = diagnosticValue(change.sourceSlot, 48);
   const length = quote === null ? '' : ` length=${quote.length} allowed=12..${maximum}`;
-  return `continuity-source-quote-invalid detail: changeIndex=${changeIndex} sourceSlot=${sourceSlot} reason=${reason}${length}.`.slice(0, 240);
+  const field = fieldPath === null ? '' : ` field=${fieldPath}`;
+  return `continuity-source-quote-invalid detail: changeIndex=${changeIndex}${field} sourceSlot=${sourceSlot} reason=${reason}${length}.`.slice(0, 240);
 }
 
 function continuityErrorsWithQuoteDiagnostics(validationErrors, changes, request, limits = {}) {
   const errors = [...validationErrors];
   const diagnostics = (Array.isArray(changes) ? changes : [])
-    .map((change, index) => quoteFailureDiagnostic(change, index, request, limits))
+    .flatMap((change, index) => {
+      const audience = change?.informationAccess?.audienceEvidence;
+      return [
+        quoteFailureDiagnostic(change, index, request, limits),
+        ...(Array.isArray(audience) ? audience.slice(0, INFORMATION_ACCESS_MAX_AUDIENCE_EVIDENCE).map((entry, audienceIndex) =>
+          quoteFailureDiagnostic(entry, index, request, limits, `threadChanges[${index}].informationAccess.audienceEvidence[${audienceIndex}]`)) : []),
+      ];
+    })
     .filter(Boolean);
   if (!diagnostics.length) return errors;
   if (!errors.includes('continuity-source-quote-invalid')) errors.push('continuity-source-quote-invalid');

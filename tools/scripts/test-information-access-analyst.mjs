@@ -18,6 +18,42 @@ const proposal = { kind: 'directive.continuityAnalystProposal.v1', envelope: req
 const schema = createFocusedStorySchema(request, 'continuityAnalyst');
 assert.match(JSON.stringify(schema), /informationAccess/, 'existing analyst must expose the access contract');
 assert.equal(parseContinuityAnalystOutput(proposal, { request }).ok, true, JSON.stringify(parseContinuityAnalystOutput(proposal, { request })));
+// A supplied but too-short audience quote must identify the nested field for retry.
+const shortAudience = structuredClone(proposal);
+shortAudience.threadChanges[1].informationAccess.audienceEvidence[0].evidenceQuote = 'Sam tells';
+const shortAudienceResult = parseContinuityAnalystOutput(shortAudience, { request });
+assert.equal(shortAudienceResult.ok, false, 'short audience evidence remains rejected');
+assert.ok(shortAudienceResult.errors.includes('continuity-source-quote-invalid'));
+const audienceDiagnostic = shortAudienceResult.errors.find(error => error.includes('threadChanges[1].informationAccess.audienceEvidence[0]'));
+assert.ok(audienceDiagnostic, 'retry must identify the invalid nested audience field');
+assert.match(audienceDiagnostic, /reason=length/);
+assert.match(audienceDiagnostic, /length=9 allowed=12\.\./);
+assert.ok(audienceDiagnostic.length <= 240, 'retry detail stays bounded');
+for (const [quote, reason] of [['Nayar tells Sam the news.', 'not-contiguous'], [null, 'invalid-type'], ['x'.repeat(241), 'length']]) {
+  const invalidAudience = structuredClone(proposal);
+  invalidAudience.threadChanges[1].informationAccess.audienceEvidence.push({ sourceSlot: 'currentPlayer', evidenceQuote: quote });
+  const parsed = parseContinuityAnalystOutput(invalidAudience, { request });
+  assert.equal(parsed.ok, false);
+  const detail = parsed.errors.find(error => error.includes('threadChanges[1].informationAccess.audienceEvidence[1]'));
+  assert.ok(detail, 'second audience entry receives its own diagnostic');
+  assert.ok(detail.includes(`reason=${reason}`));
+  assert.ok(detail.length <= 240);
+}
+const retryRequestBefore = structuredClone(request);
+let retryPayload;
+let repairedAudience = false;
+const retryAnalyst = createContinuityAnalyst({ generationRouter: { generate: async (_role, payload) => {
+  retryPayload = payload;
+  return { ok: true, response: { json: repairedAudience ? proposal : shortAudience } };
+} } });
+const rejectedAudience = await retryAnalyst({ request });
+assert.equal(rejectedAudience.ok, false);
+assert.ok(rejectedAudience.diagnostics.errors.some(error => error.includes('audienceEvidence[0]') && error.includes('allowed=12..')));
+assert.equal((await retryAnalyst({ request, validationErrors: rejectedAudience.diagnostics.errors })).ok, false, 'feedback cannot admit repeated invalid evidence');
+assert.deepEqual(JSON.parse(retryPayload.messages[1].content).validationFeedback.errors, rejectedAudience.diagnostics.errors);
+repairedAudience = true;
+assert.equal((await retryAnalyst({ request, validationErrors: rejectedAudience.diagnostics.errors })).ok, true);
+assert.deepEqual(request, retryRequestBefore, 'nested feedback never mutates source authority');
 const bad = structuredClone(proposal);
 bad.threadChanges.find(c => c.operation === 'addFact').informationAccess.recipientIds = ['location.cargo'];
 assert.equal(parseContinuityAnalystOutput(bad, { request }).ok, false, 'a known location is not a recipient');
