@@ -115,12 +115,14 @@ accessRequest.authoredContext.references = [{ id: 'person.bronn', name: 'Bronn',
 accessRequest.pendingPair.currentPlayer.text = 'I tell Bronn that the hatch is sealed. I privately intend to leave.';
 let accessCalls = 0;
 let rejectReference = true;
+const expectedAccessErrors = ['evidence_passage_invalid',
+  'threadChanges[0].evidencePassageId: unknown catalog ID. Copy one exact ID from evidencePassages for this source; never reconstruct or repair an ID.'];
 const accessAnalyst = createContinuityAnalyst({ generationRouter: { generate: async (_role, payload) => {
   accessCalls++;
   const context = JSON.parse(payload.messages[1].content);
   const publicPassage = context.evidencePassages.find(item => item.text === 'I tell Bronn that the hatch is sealed.');
   assert.ok(publicPassage);
-  if (!rejectReference) assert.deepEqual(context.validationFeedback.errors, ['evidence_passage_invalid']);
+  if (!rejectReference) assert.deepEqual(context.validationFeedback.errors, expectedAccessErrors);
   const reference = rejectReference ? 'passage.foreign' : publicPassage.id;
   return { ok: true, response: { json: { kind: 'directive.continuityAnalystProposal.v1', envelope: accessRequest.envelope, coverage: 'complete', lookupRequests: [], threadChanges: [
     { operation: 'open', localRef: 'disclosure', title: 'Hatch report', category: 'information', evidencePassageId: reference },
@@ -129,7 +131,7 @@ const accessAnalyst = createContinuityAnalyst({ generationRouter: { generate: as
 } } });
 const refused = await accessAnalyst({ request: accessRequest });
 assert.equal(refused.ok, false);
-assert.deepEqual(refused.diagnostics.errors, ['evidence_passage_invalid']);
+assert.deepEqual(refused.diagnostics.errors, expectedAccessErrors);
 rejectReference = false;
 const recovered = await accessAnalyst({ request: accessRequest, validationErrors: refused.diagnostics.errors });
 assert.equal(recovered.ok, true, JSON.stringify(recovered));

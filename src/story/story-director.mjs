@@ -870,7 +870,11 @@ export function parseFocusedStoryOutput(value, { request, roleId, limits = reque
   if (!parsed.ok) return parsed;
   let proposal;
   try { proposal = evidenceCatalog ? hydrateEvidenceReferences({ value: parsed.value, catalog: evidenceCatalog, sourcePair: normalized.pendingPair }) : parsed.value; }
-  catch (error) { return { ok: false, errors: [error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID' ? error.message : 'evidence-reference-invalid'] }; }
+  catch (error) {
+    return { ok: false, errors: error.code === 'DIRECTIVE_EVIDENCE_PASSAGE_INVALID'
+      ? [error.message, ...(typeof error.feedback === 'string' ? [error.feedback.slice(0, 240)] : [])]
+      : ['evidence-reference-invalid'] };
+  }
   const continuity = roleId === CONTINUITY_ANALYST_ROLE_ID;
   const errors = [];
   const fields = new Set(['kind', 'envelope', ...(continuity ? ['coverage', 'threadChanges', 'lookupRequests'] : ['direction'])]);

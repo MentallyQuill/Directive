@@ -362,3 +362,50 @@ await createStoryDirectionAnalyst({ generationRouter: { generate: async (_role, 
 assert.equal(Object.hasOwn(JSON.parse(directionReferencePayload.messages[1].content).validationFeedback, 'allowedExistingThreadRefs'), false,
   'continuity diagnostics do not add continuity guidance to the direction role');
 console.log('Continuity retry exact-reference guidance and strict rejection passed.');
+
+// Preserve the hydrator's bounded field path through the focused-role parser
+// and onto the next request, including nested audience evidence references.
+const passageRetryRequest = makeDirectorRequest({
+  authoredContext: { ...request.authoredContext,
+    references: [{ id: 'person.cross', name: 'Cross', kind: 'person' }],
+    referenceIds: ['person.cross'],
+  },
+  continuity: { index: [], records: [{ id: 'continuity-thread.rendezvous' }] },
+  pendingPair: { ...request.pendingPair, previousAssistant: {
+    ...request.pendingPair.previousAssistant,
+    text: 'Cross says the rendezvous is at 1400 and awaits your response.',
+  } },
+});
+const passageRetryBefore = structuredClone(passageRetryRequest);
+let passagePayload;
+let correctPassage = false;
+const passageAnalyst = createContinuityAnalyst({ generationRouter: { generate: async (_role, payload) => {
+  passagePayload = payload;
+  const context = JSON.parse(payload.messages[1].content);
+  const source = context.evidencePassages.find(entry => entry.sourceSlot === 'previousAssistant');
+  return { ok: true, response: { json: {
+    kind: 'directive.continuityAnalystProposal.v1', envelope: passageRetryRequest.envelope,
+    coverage: 'complete', lookupRequests: [], threadChanges: [{
+      operation: 'addFact', evidencePassageId: source.id,
+      threadRef: 'continuity-thread.rendezvous', text: 'Cross said the rendezvous is at 1400.',
+      claimType: 'character-claim', authoredRef: null, supersedesFactId: null,
+      informationAccess: { recipientIds: ['person.cross'], acquisition: 'heard',
+        audienceEvidence: [{ evidencePassageId: correctPassage ? source.id : `passage.${'0'.repeat(24)}` }],
+      },
+    }],
+  } } };
+} } });
+const rejectedPassage = await passageAnalyst({ request: passageRetryRequest });
+assert.equal(rejectedPassage.ok, false);
+assert.ok(rejectedPassage.diagnostics.errors.includes('evidence_passage_invalid'));
+const passageDetail = rejectedPassage.diagnostics.errors.find(error => error.startsWith('threadChanges[0].informationAccess.audienceEvidence[0].evidencePassageId:'));
+assert.ok(passageDetail, 'focused parser must retain the exact nested evidence field diagnostic');
+assert.ok(passageDetail.length <= 240);
+assert.match(passageDetail, /unknown catalog ID.*Copy one exact ID from evidencePassages/);
+assert.equal((await passageAnalyst({ request: passageRetryRequest, validationErrors: rejectedPassage.diagnostics.errors })).ok, false,
+  'feedback must not accept or guess a replacement for the repeated invalid passage');
+assert.deepEqual(JSON.parse(passagePayload.messages[1].content).validationFeedback.errors, rejectedPassage.diagnostics.errors);
+correctPassage = true;
+assert.equal((await passageAnalyst({ request: passageRetryRequest, validationErrors: rejectedPassage.diagnostics.errors })).ok, true);
+assert.deepEqual(passageRetryRequest, passageRetryBefore, 'diagnostic recovery preserves source and authority');
+console.log('Continuity nested evidence-reference retry diagnostics passed.');
