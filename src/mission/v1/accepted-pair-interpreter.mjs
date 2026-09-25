@@ -251,6 +251,8 @@ function peopleEventErrors(value, peopleContext = {}, sourcePair = {}, limits) {
                 errors.push(`${path} localRef must be stable and at most 80 characters`);
             } else if (localRefs.has(event.localRef)) {
                 errors.push(`${path} localRef is duplicated`);
+            } else if (knownPersonIds.has(event.localRef)) {
+                errors.push(`${path} localRef collides with a known person ID; use that personRef for supported observations, not personIntroduced`);
             }
             localRefs.add(event.localRef);
             if (typeof event.name !== 'string' || !event.name.trim() || event.name.length > limits.interpreterPeopleNameCharacters) {

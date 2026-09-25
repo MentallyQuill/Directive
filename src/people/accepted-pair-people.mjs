@@ -102,6 +102,9 @@ export function materializeAcceptedPairPeopleEvents({
         if (localPersonIds.has(observation.localRef)) {
             throw new TypeError(`duplicate People introduction localRef: ${observation.localRef}`);
         }
+        if (knownPersonIds.has(observation.localRef)) {
+            throw new TypeError(`People introduction localRef collides with a known person ID: ${observation.localRef}`);
+        }
         const source = sourcePair[observation.sourceSlot];
         if (!source?.messageId || !source?.textHash) throw new TypeError('People introduction source is unavailable');
         const identity = [

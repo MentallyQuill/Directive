@@ -185,6 +185,29 @@ assert.equal(parsed.value.claims.length, 2);
 assert.deepEqual(parsed.value.peopleEvents, validOutput.peopleEvents);
 assert.deepEqual(parsed.value.time, validOutput.time);
 
+// A model must not give an introduction the ID of somebody already in the directory.
+// The live soak created a second Nayar; this collision can also redirect same-result references.
+const knownIntroductionSource = {
+    ...sourcePair,
+    previousAssistant: { ...sourcePair.previousAssistant, text: 'Lieutenant Priya Nayar said, "I am Priya Nayar. Welcome to the bridge."' },
+};
+const knownIntroductionOutput = {
+    ...validOutput,
+    claims: [],
+    abstained: true,
+    peopleEvents: [{
+        type: 'personIntroduced', localRef: 'priya-nayar', name: 'Priya Nayar',
+        introductionSummary: 'Nayar introduced herself on the bridge.',
+        sourceSlot: 'previousAssistant', evidenceQuote: knownIntroductionSource.previousAssistant.text,
+    }],
+};
+const knownIntroductionContext = { knownPeople: [{ id: 'priya-nayar', name: 'Priya Nayar', role: 'Operations Officer' }] };
+const knownIntroductionRejection = parseMissionAcceptedPairInterpretationOutput(knownIntroductionOutput, {
+    candidatePacket, sourcePair: knownIntroductionSource, peopleContext: knownIntroductionContext,
+});
+assert.equal(knownIntroductionRejection.ok, false, 'an introduction must not shadow a known person ID');
+assert.ok(knownIntroductionRejection.errors.some(error => /localRef.*known person/.test(error)));
+
 const explicitDurationSourcePair = {
     ...sourcePair,
     currentPlayer: {

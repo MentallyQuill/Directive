@@ -73,4 +73,17 @@ assert.equal(events.every((event) => /^[a-f0-9]{8}$/.test(event.evidenceQuoteHas
 const tamperedPeopleEvent = { ...events[0], evidenceQuote: 'A substituted observation quote long enough to pass shape checks.' };
 assert.equal(validatePeopleEvent(tamperedPeopleEvent).ok, false);
 
+assert.throws(() => materializeAcceptedPairPeopleEvents({
+    branchId: 'save.people-materialize', peopleContext, sourcePair,
+    sourceContributionIds: { previousAssistant: 'contribution.assistant.people' },
+    observations: [{
+        type: 'personIntroduced', localRef: 'mara-whitaker', name: 'Mara Whitaker',
+        introductionSummary: 'Whitaker introduced herself to the new officer.',
+        sourceSlot: 'previousAssistant', evidenceQuote: 'Whitaker introduced herself to the new officer.',
+    }, {
+        type: 'publicFactLearned', personRef: 'mara-whitaker', field: 'role', value: 'Commanding Officer',
+        sourceSlot: 'previousAssistant', evidenceQuote: 'Whitaker introduced herself to the new officer.',
+    }],
+}), /localRef.*known person/, 'materialization must not create an alias that redirects known-person facts');
+
 console.log('V1 accepted-pair People materialization tests passed.');
