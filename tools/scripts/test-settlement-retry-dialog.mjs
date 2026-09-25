@@ -106,3 +106,12 @@ for (const [reasonCode, expected] of [
   closeSettlementRetryDialog();
 }
 console.log('Settlement retry dialog tests passed.');
+
+const invalidContinue = showSettlementRetryDialog({ reasonCode: 'continue-requires-assistant' });
+assert.equal(invalidContinue.retry.hidden, true, 'Retry must not repeat Continue against the player row');
+assert.match(invalidContinue.dialog.querySelector('.directive-settlement-retry-message').textContent, /assistant reply/i);
+assert.match(invalidContinue.dialog.querySelector('.directive-settlement-retry-detail').textContent, /Generate/i);
+assert.equal(document.activeElement, invalidContinue.close, 'the actionable Close button receives focus');
+await invalidContinue.close.listeners.get('click')[0]({ preventDefault() {} });
+assert.equal(invalidContinue.overlay.isConnected, false);
+console.log('PASS invalid Continue explains Generate without offering an ineffective Retry');

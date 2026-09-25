@@ -39,6 +39,37 @@ async function createHarness({ beforeDirection = () => {}, failDirection = () =>
   return { app, host, player, state };
 }
 
+// Native Continue appends to the actual tail, not the latest assistant anywhere
+// in history. A player tail must be refused before settlement or model work.
+for (const prior of ['fresh', 'settled', 'failed', 'stopped']) {
+  let fail = prior === 'failed';
+  let stop = prior === 'stopped';
+  const { app, host, state } = await createHarness({ failDirection: () => fail,
+    beforeDirection: async () => {
+      if (stop) { stop = false; await app.handleHostGenerationStopped(); }
+    },
+  });
+  if (prior !== 'fresh') {
+    const preparation = await app.getChatTurnOrchestrator().interceptGeneration({ type: 'normal' });
+    assert.equal(preparation.abortDefaultGeneration, prior !== 'settled', prior);
+    if (prior === 'settled') await app.handleHostGenerationEnded();
+    fail = false;
+  }
+  const before = await state();
+  const transcript = host.chat.messages();
+  const calls = host.generation.calls().length;
+  const result = await app.getChatTurnOrchestrator().interceptGeneration({ type: 'continue' });
+  assert.equal(result.abortDefaultGeneration, true, 'Continue must not append narrator prose to a player row');
+  assert.equal(result.settlementError?.reasonCode, 'continue-requires-assistant');
+  assert.equal(host.generation.calls().length, calls, prior + ': no model calls');
+  assert.deepEqual(await state(), before);
+  assert.deepEqual(host.chat.messages(), transcript);
+  assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({ type: 'normal' })).abortDefaultGeneration, false);
+  assert.equal((await state()).storySettlement.acceptedPairReceipts.length, 1);
+  await app.handleHostGenerationEnded();
+}
+console.log('PASS player-tail Continue is refused without settlement and normal Generate remains available');
+
 // Native replacement generations retain their target row while analysis runs.
 for (const type of ['swipe', 'continue', 'regenerate']) {
   for (const text of ['', 'An existing assistant draft.']) {

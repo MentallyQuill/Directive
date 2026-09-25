@@ -28,6 +28,8 @@ export function showSettlementRetryDialog({
   if (activeDialog) return activeDialog;
   const publicationBlocked = ['state-publication-pending', 'state-publication-acknowledgement',
     'state-publication-not-committed-acknowledgement', 'state-publication-writing'].includes(reasonCode);
+  const invalidContinue = reasonCode === 'continue-requires-assistant';
+  const retryUnavailable = publicationBlocked || invalidContinue;
   const opener = document.activeElement || null;
   const overlay = createElement('div', 'directive-settlement-retry-overlay');
   const dialog = createElement('section', 'directive-settlement-retry-dialog');
@@ -75,12 +77,17 @@ export function showSettlementRetryDialog({
       : 'Close this dialog, open Campaign, and choose Continue to verify the save before continuing.';
     dialog.setAttribute('aria-label', 'Verify the saved game before continuing');
   }
+  if (invalidContinue) {
+    message.textContent = 'Continue needs an assistant reply to extend. Narration has not begun.';
+    detail.textContent = 'Close this dialog and press Generate to create the reply to your message.';
+    dialog.setAttribute('aria-label', 'Generate a reply before using Continue');
+  }
   const status = createElement('p', 'directive-settlement-retry-status');
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');
   const retry = createButton({ label: 'Retry', className: 'campaign-command campaign-command-primary', icon: 'fa-solid fa-rotate-right' });
   retry.dataset.settlementRetryAction = 'retry';
-  retry.hidden = publicationBlocked;
+  retry.hidden = retryUnavailable;
   const close = createButton({ label: 'Close', className: 'campaign-command', icon: 'fa-solid fa-xmark' });
   close.dataset.settlementRetryAction = 'close';
   const actions = createElement('div', 'directive-settlement-retry-actions');
@@ -143,13 +150,13 @@ export function showSettlementRetryDialog({
   dialog.append(title, message, detail, status, actions);
   overlay.appendChild(dialog);
   appendDirectiveModal(overlay);
-  instance.release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: publicationBlocked ? close : retry, onDismiss: reason => closeDialog(instance, reason), dismissOnBackdrop: true,
+  instance.release = bindDirectiveModal({ overlay, dialog, opener, initialFocus: retryUnavailable ? close : retry, onDismiss: reason => closeDialog(instance, reason), dismissOnBackdrop: true,
     onRelease: () => {
       if (activeDialog === instance) activeDialog = null;
       instance.retryController?.abort?.(new Error('settlement-retry-closed'));
     } });
   activeDialog = instance;
-  (publicationBlocked ? close : retry).focus?.({ preventScroll: true });
+  (retryUnavailable ? close : retry).focus?.({ preventScroll: true });
   return instance;
 }
 

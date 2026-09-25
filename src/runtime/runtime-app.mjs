@@ -2426,6 +2426,19 @@ export function createDirectiveRuntimeApp({
         await host.prompt.clear?.({ reason: 'generation-interceptor-inactive-or-unbound' });
         return { handled: false, reason: 'inactive-or-unbound' };
       }
+      if (generationType === 'continue') {
+        // Native Continue appends to the actual last row, including a player
+        // left behind by Stop. Never prepare narrator prose for that target.
+        const recent = await host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
+        assertTurnActive(progressScope);
+        const target = recent?.at(-1);
+        if (!target || isUserMessage(target) || !activeSourceRow(target)) {
+          await host.prompt.clear?.({ reason: 'continue-requires-assistant' });
+          return { handled: true, abortDefaultGeneration: true, responseStrategy: 'blockAndRetry',
+            settlementError: { code: 'DIRECTIVE_CONTINUE_TARGET_INVALID', reasonCode: 'continue-requires-assistant',
+              blockedRoles: [], persistenceAttempts: 0 } };
+        }
+      }
       if (characterKnowledgeSettings()?.mode === 'protected' && ['swipe', 'regenerate'].includes(generationType)
         && typeof host.chat.prepareProtectedGeneration === 'function') {
         await enqueueStateMutation(() => host.chat.prepareProtectedGeneration({ type: generationType,
