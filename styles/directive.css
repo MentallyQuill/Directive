@@ -5874,6 +5874,8 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
 .directive-settlement-retry-overlay {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
   z-index: 10050;
   display: grid;
   place-items: center;
@@ -5911,6 +5913,7 @@ html.directive-reorder-grabbing * { cursor: grabbing !important; }
   justify-content: flex-end;
   gap: var(--directive-space-control);
 }
+.directive-settlement-retry-actions .campaign-command[hidden] { display: none; }
 
 /* Player objective corrections stay within the Mission card and modal. */
 .objective-progress-controls { margin-top: 10px; min-width: 0; }

@@ -111,6 +111,36 @@ try {
   assert.equal(await page.evaluate(() => reopenedRetry.overlay.isConnected), true, 'external disposal must allow a fresh retry dialog');
   await page.keyboard.press('Escape');
   await page.evaluate(async () => {
+    const retry = await import('/src/ui/settlement-retry-dialog.js');
+    window.invalidContinue = retry.showSettlementRetryDialog({ reasonCode: 'continue-requires-assistant' });
+  });
+  assert.equal(await page.locator('[data-settlement-retry-action="retry"]').isVisible(), false, 'production CSS must honor hidden Retry');
+  assert.equal(await page.locator('[data-settlement-retry-action="settings"]').isVisible(), false, 'unrelated Settings action stays hidden');
+  assert.equal(await page.locator('[data-settlement-retry-action="close"]').isVisible(), true);
+  // The native host can transform a zero-height html root while fixing body to
+  // the viewport. Nested fixed overlays must not collapse to that root's height.
+  await page.evaluate(() => {
+    document.documentElement.style.transform = 'matrix(1, 0, 0, 1, 0, 0)';
+    document.documentElement.style.height = '0px';
+    document.documentElement.style.minHeight = '0px';
+    document.body.style.position = 'fixed';
+    document.body.style.height = '100dvh';
+  });
+  for (const size of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(size);
+    const rect = await page.locator('.directive-settlement-retry-dialog').boundingBox();
+    assert.ok(rect.y >= 0 && rect.y + rect.height <= size.height, 'entire recovery dialog remains inside transformed host viewport');
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.transform = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.minHeight = '';
+    document.body.style.position = '';
+    document.body.style.height = '';
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.keyboard.press('Escape');
+  await page.evaluate(async () => {
     const { createSaveGameDialog } = await import('/src/ui/timeline-dialogs.js');
     window.saveCalls = 0;
     window.save = createSaveGameDialog({ onSave: () => { saveCalls++; return new Promise((resolve, reject) => { window.rejectSave = reject; window.resolveSave = resolve; }); } });
