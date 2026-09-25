@@ -2620,6 +2620,12 @@ export function createV1MissionRuntime({
                     publicContext: {
                         displayName: event.name,
                         introductionSummary: event.introductionSummary,
+                        campaignContext: {
+                            campaignTitle: candidateState?.campaign?.title
+                                || captured.runtimeAssets?.packageData?.manifest?.title || '',
+                            shipName: captured.runtimeAssets?.shipDataset?.manifest?.title || '',
+                            shipSummary: captured.runtimeAssets?.shipDataset?.profile?.summary || '',
+                        },
                     },
                 });
                 candidateState.storySettlement = recordPendingDossier(candidateState.storySettlement, job);

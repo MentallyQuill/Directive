@@ -6,6 +6,12 @@ let signal; let started; let enrichmentStarted;
 const authorStarted=new Promise(resolve=>{started=resolve;});
 const enrichmentRequested=new Promise(resolve=>{enrichmentStarted=resolve;});
 let authorCalls=0; let pairCalls=0; let authoredPersonId=null;
+const expectedCampaignContext={
+  campaignTitle:'Ashes of Peace',
+  shipName:'U.S.S. Breckenridge',
+  shipSummary:'The Breckenridge is an Intrepid-class Starfleet vessel: compact, advanced, fast, and built for autonomous long-range operations without Galaxy-class scale.',
+};
+const sentCampaignContexts=[];
 const introduction='I am Lieutenant Vale, the transfer liaison assigned to your resupply.';
 const generation=createFakeGenerationClient({responses:{
   acceptedPairMissionEvidence:async()=>({text:JSON.stringify({
@@ -14,7 +20,9 @@ const generation=createFakeGenerationClient({responses:{
     peopleEvents:++pairCalls===1?[{type:'personIntroduced',localRef:'vale',name:'Lieutenant Vale',
       introductionSummary:'The transfer liaison introduced themself.',sourceSlot:'previousAssistant',evidenceQuote:introduction}]:[],
   })}),
-  peopleDossierAuthor:({rawOptions})=>{
+  peopleDossierAuthor:({request,rawOptions})=>{
+    const content=request.messages.at(-1).content;
+    sentCampaignContexts.push(JSON.parse(content.slice(content.indexOf('{'))).publicCampaignContext);
     authorCalls++; signal=rawOptions.signal; started();
     if(authorCalls>1){enrichmentStarted();return {text:JSON.stringify({
       kind:'directive.peopleDossierBatch.v1',dossiers:[{
@@ -46,6 +54,8 @@ assert.equal(authorCalls,0,'accepted identity and narration do not await full bi
 let state=(await app.getCurrentView({tabId:'people'})).campaignState;
 assert.equal(state.storySettlement.pendingDossiers.length,1);
 assert.equal(state.storySettlement.pendingDossiers[0].status,'pending');
+assert.deepEqual(state.storySettlement.pendingDossiers[0].publicContext.campaignContext,expectedCampaignContext,
+  'queued biography retains only the public campaign/ship context instead of silently defaulting to an empty world');
 authoredPersonId=state.storySettlement.pendingDossiers[0].personId;
 assert.ok(state.storySettlement.episodes.flatMap(e=>e.peopleEvents).some(e=>e.type==='personIntroduced'&&e.name==='Lieutenant Vale'));
 host.chat.pushAssistantMessage({text:'Vale asks which supplies should take priority.',metadata:{promptingPlayerHostMessageId:second.hostMessageId}});
@@ -57,6 +67,7 @@ assert.equal((await app.getChatTurnOrchestrator().interceptGeneration({type:'nor
 await app.handleHostGenerationEnded();
 await authorStarted;
 assert.equal(authorCalls,1);
+assert.deepEqual(sentCampaignContexts[0],expectedCampaignContext,'actual author request receives queued public context');
 const third=host.chat.pushPlayerMessage({text:'I ask whether the medical supplies can be transferred first.'});
 const next=await app.getChatTurnOrchestrator().interceptGeneration({type:'normal'});
 assert.equal(signal.aborted,true,'next turn cancels optional authoring');
@@ -66,7 +77,11 @@ state=(await app.getCurrentView({tabId:'people'})).campaignState;
 assert.ok(state.storySettlement.episodes.flatMap(e=>e.peopleEvents).some(e=>e.type==='personIntroduced'&&e.name==='Lieutenant Vale'));
 assert.equal(generation.calls().filter(c=>c.role==='episodeEvaluator').length,0);
 
-const reloaded=createDirectiveRuntimeApp({host,packageLoader:async()=>loadAshesRuntimeAssets(),idFactory:prefix=>`${prefix}.reload.${++sequence}`,now:()=> '2026-09-08T04:01:00.000Z'});
+const reloaded=createDirectiveRuntimeApp({host,packageLoader:async()=>{
+  const changedAssets=loadAshesRuntimeAssets();
+  changedAssets.shipDataset.profile.summary='A changed package summary must not replace already queued introduction context.';
+  return changedAssets;
+},idFactory:prefix=>`${prefix}.reload.${++sequence}`,now:()=> '2026-09-08T04:01:00.000Z'});
 await reloaded.initialize();
 const retry=await reloaded.retryPendingPeopleDossiers();
 assert.deepEqual(retry,{ok:true,queued:1},'explicit retry recovers one persisted orphaned in-flight job');
@@ -85,6 +100,7 @@ while(Date.now()<enrichmentDeadline){
 const vale=state.storySettlement.episodes.flatMap(e=>e.peopleEvents)
   .find(e=>e.type==='personIntroduced'&&e.name==='Lieutenant Vale');
 assert.equal(authorCalls,2,'reload does not automatically retry the orphan; the explicit action makes one request');
+assert.deepEqual(sentCampaignContexts[1],expectedCampaignContext,'public context survives persisted reload and explicit retry');
 assert.equal(state.storySettlement.pendingDossiers.length,0);
 assert.equal(vale.publicFacts.role,'Transfer liaison');
 assert.equal(vale.publicFacts.profileSummary,'A public-facing transfer liaison.');
