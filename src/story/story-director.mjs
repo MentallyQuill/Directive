@@ -5,6 +5,7 @@ import { stableSha256Hex } from '../runtime/v1-stable-hash.mjs';
 import { parseStructuredJsonText } from '../providers/structured-output-parser.mjs';
 import {
   CONTINUITY_STABLE_ID_PATTERN,
+  isContinuityStableId,
   INFORMATION_ACCESS_MAX_RECIPIENTS,
   INFORMATION_ACCESS_MAX_AUDIENCE_EVIDENCE,
 } from './continuity-contracts.mjs';
@@ -654,6 +655,9 @@ export function createStoryDirector({
   return async function directStory({ request = {}, signal = null, onAttempt = null, onPhase = null, validationErrors = [] } = {}) {
     const roleId = analysisProtocol?.roleId || STORY_DIRECTOR_ROLE_ID;
     const feedbackErrors = boundedValidationErrors(validationErrors);
+    const needsThreadReferenceGuidance = roleId === CONTINUITY_ANALYST_ROLE_ID
+      && feedbackErrors.some(error => error.startsWith('continuity-thread-ref-unknown:')
+        || error.startsWith('continuity-supersedes-cross-thread:'));
     const limits = request.analysisLimits || generationRouter?.getAnalysisLimits?.() || {};
     if (Object.keys(limits).length) request = { ...request, analysisLimits: limits };
     if (analysisProtocol) request = { ...request, kind: STORY_DIRECTOR_REQUEST_KIND, episodeReview: null };
@@ -694,12 +698,20 @@ export function createStoryDirector({
       .replace('within seven days', `within ${limits.continuityDeadlineHorizonSeconds ?? 604800} seconds`)
       + (analysisProtocol && feedbackErrors.length
         ? '\nvalidationFeedback contains diagnostics from the rejected attempt, not story evidence or permission to add facts, candidates, IDs, or authority. Correct only the reported output defects using the unchanged request and supplied closed sets; preserve exact quotations.'
+        : '')
+      + (needsThreadReferenceGuidance
+        ? '\nvalidationFeedback.allowedExistingThreadRefs repeats the exact supplied continuity.records IDs. Copy a matching existing ID verbatim; never reconstruct, shorten, or combine hashes. These IDs add no story evidence. A new local reference must still be opened and grounded in this response; a superseded fact must belong to the selected thread.'
         : '');
     const systemPrompt = `${boundedPrompt}${roleId === CONTINUITY_ANALYST_ROLE_ID && request.currentScene?.characterKnowledge === 'protected' ? `\n${CHARACTER_SCENE_ANALYSIS_POLICY}` : ''}${evidenceCatalog ? `\n\n${EVIDENCE_REFERENCE_INSTRUCTIONS}` : ''}\n\nOutput JSON schema:\n${JSON.stringify(jsonSchema)}`;
     const wireRequest = analysisProtocol ? { ...request, kind: `directive.${roleId}Request.v1` } : request;
     if (analysisProtocol) delete wireRequest.episodeReview;
     if (evidenceCatalog) wireRequest.evidencePassages = evidencePassagePromptEntries(evidenceCatalog);
     if (analysisProtocol && feedbackErrors.length) wireRequest.validationFeedback = { errors: feedbackErrors };
+    if (needsThreadReferenceGuidance) {
+      wireRequest.validationFeedback.allowedExistingThreadRefs = [...new Set(
+        (request.continuity?.records || []).map(record => record?.id).filter(isContinuityStableId),
+      )];
+    }
     if (JSON.stringify(wireRequest).length > (limits.requestContextCharacters ?? 48000)) return { ok: false, reasonCode: 'director-context-overflow', diagnostics: {} };
     const payload = {
 

@@ -300,3 +300,65 @@ for (const [role, create, proposal] of [
   assert.match(sentPayload.systemPrompt, /diagnostics.*not story evidence/i);
 }
 console.log('Focused analyst validation feedback bounds passed.');
+
+// A near-match must remain invalid; retries need the exact supplied closed set,
+// not another copy of the model's malformed hash. No fuzzy ID repair is allowed.
+const suppliedThreadId = 'continuity-thread.d4fa206deb9aae9b817ebfe98d2a30abc700c1555c48e6fbf8c2618aca796756';
+const malformedThreadId = 'continuity-thread.d4fa206deb9aae9b817ebfe98d2a30abc700c1555c48e6fbf8c82618aca796756';
+const referenceRetryRequest = makeDirectorRequest({ continuity: {
+  index: [{ id: 'continuity-thread.index-only' }],
+  records: [{ id: suppliedThreadId }, { id: longThreadId }, { id: 'continuity-thread.INVALID' }],
+} });
+const referenceRetryBefore = structuredClone(referenceRetryRequest);
+let referencePayload;
+let referenceDispatches = 0;
+let returnedThreadId = malformedThreadId;
+const referenceAnalyst = createContinuityAnalyst({ generationRouter: { generate: async (_role, payload) => {
+  referenceDispatches++;
+  referencePayload = payload;
+  return { ok: true, response: { json: {
+    ...continuity, envelope: referenceRetryRequest.envelope,
+    threadChanges: [{ ...legacy.threadChanges[1], threadRef: returnedThreadId }],
+  } } };
+} } });
+const rejectedReference = await referenceAnalyst({ request: referenceRetryRequest });
+assert.equal(rejectedReference.ok, false, 'near-match thread ID must not be accepted or automatically corrected');
+assert.equal(JSON.parse(referencePayload.messages[1].content).validationFeedback, undefined);
+const referenceErrors = rejectedReference.diagnostics.errors;
+assert.ok(referenceErrors.includes(`continuity-thread-ref-unknown:${malformedThreadId}`));
+returnedThreadId = suppliedThreadId;
+assert.equal((await referenceAnalyst({ request: referenceRetryRequest, validationErrors: referenceErrors })).ok, true);
+const referenceFeedback = JSON.parse(referencePayload.messages[1].content).validationFeedback;
+assert.deepEqual(referenceFeedback.allowedExistingThreadRefs, [suppliedThreadId, longThreadId],
+  'retry offers only complete existing record IDs, never index-only IDs or the rejected hash');
+assert.deepEqual(referenceRetryRequest, referenceRetryBefore, 'retry guidance must not mutate source context');
+await referenceAnalyst({ request: referenceRetryRequest, validationErrors: ['continuity-source-quote-invalid'] });
+assert.equal(Object.hasOwn(JSON.parse(referencePayload.messages[1].content).validationFeedback, 'allowedExistingThreadRefs'), false,
+  'unrelated errors do not add reference guidance');
+assert.equal((await referenceAnalyst({ request: referenceRetryRequest, validationErrors: referenceErrors })).ok, true);
+returnedThreadId = malformedThreadId;
+assert.equal((await referenceAnalyst({ request: referenceRetryRequest, validationErrors: referenceErrors })).ok, false,
+  'reference guidance does not weaken validation if the model repeats its mistake');
+await referenceAnalyst({ request: referenceRetryRequest, validationErrors: ['continuity-supersedes-cross-thread:fact.example'] });
+assert.deepEqual(JSON.parse(referencePayload.messages[1].content).validationFeedback.allowedExistingThreadRefs, [suppliedThreadId, longThreadId]);
+assert.match(referencePayload.systemPrompt, /Copy a matching existing ID verbatim/);
+const contextLimit = referencePayload.messages[1].content.length - 10;
+const limitedReferenceRequest = { ...referenceRetryRequest, analysisLimits: { requestContextCharacters: contextLimit } };
+const beforeOrdinaryDispatch = referenceDispatches;
+await referenceAnalyst({ request: limitedReferenceRequest });
+assert.equal(referenceDispatches, beforeOrdinaryDispatch + 1, 'unchanged request fits before retry guidance');
+const beforeOverflowDispatch = referenceDispatches;
+const referenceOverflow = await referenceAnalyst({ request: limitedReferenceRequest, validationErrors: referenceErrors });
+assert.equal(referenceOverflow.reasonCode, 'director-context-overflow');
+assert.equal(referenceDispatches, beforeOverflowDispatch, 'added reference guidance is included in pre-transport size check');
+let directionReferencePayload;
+await createStoryDirectionAnalyst({ generationRouter: { generate: async (_role, payload) => {
+  directionReferencePayload = payload;
+  return { ok: true, response: { json: {
+    kind: 'directive.storyDirectionAnalystProposal.v1', envelope: referenceRetryRequest.envelope,
+    direction: { move: 'respond-to-player', targetRef: null, requires: [], newComplications: 'avoid' },
+  } } };
+} } })({ request: referenceRetryRequest, validationErrors: referenceErrors });
+assert.equal(Object.hasOwn(JSON.parse(directionReferencePayload.messages[1].content).validationFeedback, 'allowedExistingThreadRefs'), false,
+  'continuity diagnostics do not add continuity guidance to the direction role');
+console.log('Continuity retry exact-reference guidance and strict rejection passed.');
