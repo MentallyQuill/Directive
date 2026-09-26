@@ -10,6 +10,7 @@ import { createScenePacingContext } from '../narration/scene-pacing.mjs';
 import { createCharacterInformationProjection, CHARACTER_INFORMATION_POLICY } from '../story/character-information.mjs';
 import { createOpeningLifecycle } from '../narration/opening-lifecycle.mjs';
 import { createTranscriptFinalizationLane, transcriptNotReady } from './transcript-finalization-lane.mjs';
+import { captureCancelledSwipeRestoration, matchesCancelledSwipeRestoration } from './cancelled-swipe-restoration.mjs';
 import { createGenerationCancellation, generationAbortedError } from './generation-cancellation.mjs';
 import { getOpeningPremiseErrors } from '../narration/campaign-opening.mjs';
 import { runCharacterCreatorSectionDraft } from '../creators/character-creator-assist.mjs';
@@ -902,7 +903,7 @@ export function createDirectiveRuntimeApp({
   }
   function unchangedTranscriptObservation(owner) {
     const observed = transcriptObservation();
-    let noAssistantOutput = owner?.baseline === observed;
+    let noAssistantOutput = owner?.baseline === observed || restoredCancelledSwipe(owner, observed);
     if (owner?.baseline && observed && !noAssistantOutput && !openingPublications.has(owner.key)) {
       const before = JSON.parse(owner.baseline), after = JSON.parse(observed);
       const tail = after.at(-1);
@@ -913,17 +914,26 @@ export function createDirectiveRuntimeApp({
   }
   function releaseUnchangedTranscript(owner) {
     const activity = host.chat.getGenerationActivity?.();
-    if (owner && !owner.running && unchangedTranscriptObservation(owner) !== null
+    const restoredSwipe = restoredCancelledSwipe(owner);
+    if (owner && !owner.running && (!restoredSwipe
+        || ((!owner.preparationStarted || owner.preparationSettled === true)
+          && !failedFinalizations.has(owner.key) && !openingPublications.has(owner.key)))
+      && unchangedTranscriptObservation(owner) !== null
       && (!activity || activity.status === 'idle')) {
       transcriptLane.releaseUnchanged(owner);
       return true;
     }
     return false;
   }
+  function restoredCancelledSwipe(owner, observed = transcriptObservation()) {
+    return owner?.stoppedBeforeOutput === true && owner.key === transcriptKey()
+      && matchesCancelledSwipeRestoration(owner.swipeRestoration, observed);
+  }
   function changedAssistantOutput(owner) {
     if (!owner || owner.running || !owner.baseline) return null;
     const sampled = host.chat.captureCurrentTranscriptSnapshot?.();
     if (sampled?.status !== 'captured') return null;
+    if (restoredCancelledSwipe(owner, JSON.stringify(sampled.snapshot.rows))) return null;
     const before = JSON.parse(owner.baseline), after = sampled.snapshot.rows;
     if (![before.length, before.length + 1].includes(after.length) || !after.length) return null;
     const prefixLength = after.length === before.length ? after.length - 1 : before.length;
@@ -2742,7 +2752,8 @@ export function createDirectiveRuntimeApp({
         && !finalizationFlights.has(stoppedOwner.key) && !failedFinalizations.has(stoppedOwner.key)
         && !openingPublications.has(stoppedOwner.key) && currentChatIsBound()
         && ['idle', 'active'].includes(host.chat.getGenerationActivity?.()?.status)
-        && stoppedOwner.stoppedTranscript != null && stoppedOwner.stoppedTranscript === transcriptObservation()) {
+        && ((stoppedOwner.stoppedTranscript != null && stoppedOwner.stoppedTranscript === transcriptObservation())
+          || restoredCancelledSwipe(stoppedOwner))) {
         transcriptLane.releaseUnchanged(stoppedOwner);
       }
       if (!activeAnalysisController) releaseUnchangedTranscript(transcriptLane.current(transcriptKey()));
@@ -2758,6 +2769,7 @@ export function createDirectiveRuntimeApp({
       if (activeHostGenerationGesture.transcriptOwner) {
         const owner = activeHostGenerationGesture.transcriptOwner;
         owner.generationType = generationType;
+        if (generationType === 'swipe') owner.swipeRestoration = captureCancelledSwipeRestoration(owner.baseline);
         if (generationType === 'regenerate') {
           const recent = host.chat.getRecentMessages?.({ limit: 1, playerSafeOnly: false });
           const tail = Array.isArray(recent) ? recent.at(-1) : null;
@@ -3499,6 +3511,7 @@ export function createDirectiveRuntimeApp({
 
     async handleHostGenerationStopped() {
       const stoppedOwner = transcriptLane.current(transcriptKey());
+      if (stoppedOwner && !stoppedOwner.revoked) stoppedOwner.stoppedBeforeOutput = stoppedOwner.phase === 'preparing';
       // Start precedes the native user append. Capture that permitted single-row
       // change at Stop, then require exact stability before a fresh busy gesture.
       if (stoppedOwner) stoppedOwner.stoppedTranscript = unchangedTranscriptObservation(stoppedOwner);

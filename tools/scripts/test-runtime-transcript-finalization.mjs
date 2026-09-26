@@ -11,7 +11,7 @@ const assets = loadAshesRuntimeAssets();
 const now = '2026-09-16T12:00:00.000Z';
 let sequence = 0;
 function deferred() { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; }
-async function rig() {
+async function rig(generationOptions = undefined) {
   const suffix = ++sequence, saveId = `save.finalization.${suffix}`, chatId = `chat.finalization.${suffix}`;
   const before = createAshesInitialState({ campaignId: `campaign.finalization.${suffix}`, saveId, chatId });
   before.campaignChatBinding = { ...before.campaignChatBinding, hostId: 'fake', entityType: 'character', entityId: '7', entityName: 'Narrator' };
@@ -22,7 +22,7 @@ async function rig() {
   const chat = createFakeChatAdapter({ chatId, entityId: '7', entityName: 'Narrator', messages: [],
     isGenerating: () => nativeActive, isReplyGenerating: () => replyActive ?? nativeActive });
   await chat.updateBindingMetadata(before.campaignChatBinding);
-  const host = createFakeDirectiveHost({ chat, storage });
+  const host = createFakeDirectiveHost({ chat, storage, generationOptions });
   const app = createDirectiveRuntimeApp({ host, packageLoader: async () => assets, now: () => now });
   await app.initialize();
   async function state() { return (await app.getCurrentView({ tabId: 'mission' })).campaignState; }
@@ -39,6 +39,84 @@ async function rig() {
   }
   return { app, host, chat, storage, saveId, before: await state(), state, control,
     setNativeActive(value) { nativeActive = value; }, setReplyActive(value) { replyActive = value; } };
+}
+
+async function cancelledOverswipe({ restoreBeforeStop = false, drain = true, mutate = () => {} } = {}) {
+  const r = await rig({ responses: { acceptedPairMissionEvidence: () => ({ text: JSON.stringify({
+    kind: 'directive.missionEvidenceInterpretation.v1', assistantAcceptance: 'accepted', claims: [], abstained: true,
+    time: { decision: 'unchanged', basis: 'noPassage', elapsedSeconds: 0, reason: 'same-second', confidence: 0.9 },
+  }) }) } }), entered = deferred(), release = deferred();
+  r.chat.pushPlayerMessage({ hostMessageId: 'player.swipe-prefix', text: 'Previous instruction.' });
+  r.chat.pushAssistantMessage({ hostMessageId: 'assistant.swipe-original', text: 'Original reply.' });
+  const original = r.chat.messages(), row = original.at(-1);
+  Object.assign(row, { mes: row.text, swipe_id: 0, swipes: [row.text],
+    send_date: now, gen_started: now, gen_finished: now,
+    extra: { generationType: 'normal', retained: 'unchanged' } });
+  row.swipe_info = [{ send_date: now, gen_started: now, gen_finished: now, extra: structuredClone(row.extra) }];
+  mutate(original, 'before-start');
+  const transient = structuredClone(original);
+  transient.at(-1).swipe_id = transient.at(-1).swipes.length;
+  delete transient.at(-1).gen_started;
+  delete transient.at(-1).gen_finished;
+  delete transient.at(-1).extra.generationType;
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), transient);
+  const install = r.host.prompt.install.bind(r.host.prompt);
+  r.host.prompt.install = async (...args) => { entered.resolve(); await release.promise; return install(...args); };
+  r.app.handleHostGenerationStarted({ type: 'swipe' });
+  const preparing = r.app.getChatTurnOrchestrator().interceptGeneration({ type: 'swipe', recoveryIntent: 'native' });
+  await entered.promise;
+  if (restoreBeforeStop) r.chat.setMessagesForChat(r.chat.getCurrentChatId(), original);
+  await r.app.handleHostGenerationStopped();
+  if (!restoreBeforeStop) r.chat.setMessagesForChat(r.chat.getCurrentChatId(), original);
+  const restored = r.chat.messages();
+  mutate(restored, 'after-stop');
+  r.chat.setMessagesForChat(r.chat.getCurrentChatId(), restored);
+  if (drain) { release.resolve(); await preparing; }
+  return { ...r, original, release, preparing };
+}
+
+{
+  const r = await cancelledOverswipe();
+  r.setNativeActive(true);
+  r.app.handleHostGenerationStarted();
+  const player = r.chat.pushPlayerMessage({ hostMessageId: 'player.after-swipe-stop', text: 'Ask for the next report.' });
+  const observed = await r.app.observeHostPlayerMessage({ message: player });
+  assert.equal(observed.reason, 'generation-preparation-pending', 'restored cancelled overswipe admits the next normal player turn');
+  const resumed = await r.app.getChatTurnOrchestrator().interceptGeneration({ recoveryIntent: 'native' });
+  assert.equal(resumed.abortDefaultGeneration, false);
+  assert.deepEqual(r.chat.messages().slice(0, r.original.length), r.original);
+  assert.equal((await r.state()).storySettlement.acceptedPairReceipts.length, 1);
+  assert.equal(r.chat.calls().filter(call => call.type === 'attachAssistantRuntimeMetadata').length, 0);
+}
+
+{
+  const r = await cancelledOverswipe({ restoreBeforeStop: true });
+  const saved = await r.app.saveGame({ name: 'Restored before Stop' });
+  assert.ok(saved.checkpoint?.id, 'restoration before Stop is not a new assistant finalization obligation');
+  assert.equal(r.app.getTranscriptFinalizationStatus(), null);
+  assert.equal(r.chat.calls().filter(call => call.type === 'attachAssistantRuntimeMetadata').length, 0);
+}
+
+for (const variant of ['draining', 'prefix', 'text', 'swipe-info', 'swipe-array', 'ambiguous', 'missing-info', 'actual-output']) {
+  const r = await cancelledOverswipe({ drain: variant !== 'draining', mutate(rows, phase) {
+    const row = rows.at(-1);
+    if (phase === 'before-start') {
+      if (variant === 'ambiguous') { row.swipes.push(row.mes); row.swipe_info.push(structuredClone(row.swipe_info[0])); }
+      if (variant === 'missing-info') delete row.swipe_info[0].gen_started;
+      return;
+    }
+    if (variant === 'prefix') rows[0].text += ' Edited.';
+    if (variant === 'text') row.mes += ' Edited.';
+    if (variant === 'swipe-info') row.swipe_info[0].extra.retained = 'changed';
+    if (variant === 'swipe-array') row.swipes[0] += ' Edited.';
+    if (variant === 'actual-output') rows.push({ role: 'assistant', text: 'New partial output.' });
+  } });
+  const before = await r.state();
+  await assert.rejects(r.app.saveGame({ name: `Unsafe restoration ${variant}` }),
+    { code: 'DIRECTIVE_TRANSCRIPT_NOT_READY' }, `${variant}: ambiguous or undrained restoration cannot release custody`);
+  assert.deepEqual(await r.state(), before);
+  assert.equal(r.app.getTranscriptFinalizationStatus().phase, 'failed');
+  if (variant === 'draining') { r.release.resolve(); await r.preparing; }
 }
 
 for (const heldMethod of ['stripAssistantTimeFooter', 'attachAssistantRuntimeMetadata']) {
