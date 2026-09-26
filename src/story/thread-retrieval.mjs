@@ -65,6 +65,7 @@ export function retrieveContinuityThreads({
   // An overdue backlog must not permanently crowd out the current conversation.
   candidates.sort((a, b) => Number(explicit(b)) - Number(explicit(a)) || related(b) - related(a) || Number(exactTitle(b)) - Number(exactTitle(a)) || Number(approaching(b)) - Number(approaching(a)) || Number(dependencyThreads.has(b.id)) - Number(dependencyThreads.has(a.id)) || age(a) - age(b) || Number(due(b)) - Number(due(a)) || Number(protectedThread(b)) - Number(protectedThread(a)) || a.id.localeCompare(b.id));
   const records = [];
+  const lookupExtras = new Map();
   const projection = () => ({
     index: records.filter(thread => !terminal.has(thread.status)).map(({id,title,category,status}) => ({id,title,category,status})).sort((a,b) => a.id.localeCompare(b.id)),
     records,
@@ -84,10 +85,26 @@ export function retrieveContinuityThreads({
     // matches could omit the very deadline that brought this thread into context.
     const attentionFact = due(thread) ? thread.facts.filter(dueFact).sort((a,b) => Number(approachingFact(b)) - Number(approachingFact(a)) || Math.abs(a.deadlineElapsedSeconds-currentElapsedSeconds) - Math.abs(b.deadlineElapsedSeconds-currentElapsedSeconds))[0] : null;
     const facts = thread.facts.map((fact,index) => ({fact,index})).sort((a,b) => (lookupOnly ? Number(explicitFact(b.fact)) - Number(explicitFact(a.fact)) : 0) || Number(b.fact===attentionFact) - Number(a.fact===attentionFact) || Number(explicitFact(b.fact)) - Number(explicitFact(a.fact)) || relevance(b.fact.text) - relevance(a.fact.text) || b.index - a.index).slice(0,maxFacts).map(({fact}) => structuredClone(fact));
-    const record = { id:thread.id, title:thread.title, category:thread.category, status:thread.status, lastRelevantRevision:revisions.get(thread.id) ?? 0, inactiveRevisionCount:age(thread), facts, omittedFactCount:thread.facts.length - facts.length, sourceContributionIds:[...new Set(facts.flatMap(fact => fact.sourceContributionIds || []))] };
+    // A lookup is a search for missing context: offer each ranked candidate one
+    // fact before a verbose early match can consume the entire character budget.
+    const selectedFacts = lookupOnly ? facts.slice(0, 1) : facts;
+    const record = { id:thread.id, title:thread.title, category:thread.category, status:thread.status, lastRelevantRevision:revisions.get(thread.id) ?? 0, inactiveRevisionCount:age(thread), facts:selectedFacts, omittedFactCount:thread.facts.length - selectedFacts.length, sourceContributionIds:[...new Set(selectedFacts.flatMap(fact => fact.sourceContributionIds || []))] };
+    if (lookupOnly) lookupExtras.set(record, facts.slice(1));
     records.push(record);
     while (size(projection()) > maxCharacters && record.facts.length) { record.facts.pop(); record.omittedFactCount++; record.sourceContributionIds = [...new Set(record.facts.flatMap(fact => fact.sourceContributionIds || []))]; }
     if (size(projection()) > maxCharacters || (thread.facts.length && !record.facts.length)) records.pop();
+  }
+  for (const record of records) for (const fact of lookupExtras.get(record) || []) {
+    const previousSources = record.sourceContributionIds;
+    record.facts.push(fact);
+    record.omittedFactCount--;
+    record.sourceContributionIds = [...new Set(record.facts.flatMap(item => item.sourceContributionIds || []))];
+    if (size(projection()) > maxCharacters) {
+      record.facts.pop();
+      record.omittedFactCount++;
+      record.sourceContributionIds = previousSources;
+      break;
+    }
   }
   return projection();
 }

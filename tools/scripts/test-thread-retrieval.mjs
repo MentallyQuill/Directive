@@ -133,4 +133,31 @@ assert.deepEqual(lookupContinuityThreads({ events: punctuatedIds, queryText: 're
 assert.equal(lookupContinuityThreads({ events: places, queryText: 'an of to' }).records.length, 0, 'short alphabetic noise stays excluded');
 assert.equal(lookupContinuityThreads({ events: places, queryText: 'What freight did we promise the outpost?' }).records.length, 0, 'no synonym or semantic inference without shared lexical anchors');
 assert.deepEqual(places, placesBefore, 'lexical scoring cannot mutate the authoritative archive');
+// A targeted lookup must not spend its entire character allowance enriching
+// the first verbose match before giving other matching records one fact.
+const crowdedLookup = [0, 1, 2, 3].flatMap(index => {
+  const threadId = `thread.lookup.${index}`;
+  const opened = { ...events[0], id: `lookup.open.${index}`, threadId,
+    payload: { title: index === 3 ? 'Private brief with Nayar scheduled for 1015' : `Readiness discussion ${index}`, category: 'schedule' } };
+  return [opened, ...Array.from({ length: index === 3 ? 2 : 12 }, (_, factIndex) => ({
+    ...events[1], id: `lookup.fact.${index}.${factIndex}`, threadId,
+    dependsOnEventIds: [opened.id],
+    payload: { ...events[1].payload, text: index === 3
+      ? `Calder and Nayar agreed to a private brief at 1015. ${'Coverage and room arrangements are recorded. '.repeat(16)}`
+      : `Calder Nayar briefing staff readiness meeting operations. ${'Detailed readiness observation. '.repeat(16)}` },
+  }))];
+});
+const crowdedBefore = structuredClone(crowdedLookup);
+const lookupOptions = { events: crowdedLookup,
+  queryText: 'Scheduled briefing between Calder and Nayar at 1015, staff readiness meeting or operations briefing commitment',
+  maxCharacters: 7000, maxThreads: 4, maxFacts: 12 };
+const diverseLookup = lookupContinuityThreads(lookupOptions);
+assert.ok(diverseLookup.records.some(record => record.id === 'thread.lookup.3'), 'target appointment survives verbose broadly related matches');
+assert.equal(diverseLookup.records.length, 4, 'give each fitting candidate one fact before enriching any candidate');
+assert.ok([...JSON.stringify(diverseLookup)].length <= 7000);
+assert.ok(diverseLookup.records.every(record => record.facts.length >= 1 && record.facts.length <= 12));
+assert.equal(diverseLookup.retrieval.omittedFactCount, 38 - diverseLookup.records.reduce((n, record) => n + record.facts.length, 0));
+assert.deepEqual(crowdedLookup, crowdedBefore, 'packing never changes archived facts');
+const explicitCrowded = lookupContinuityThreads({ ...lookupOptions, referencedIds: ['lookup.fact.2.0'], maxFacts: 1 });
+assert.equal(explicitCrowded.records[0].facts[0].id, 'lookup.fact.2.0', 'explicit fact priority survives breadth-first lookup packing');
 console.log('Thread lifecycle and retrieval tests passed.');
