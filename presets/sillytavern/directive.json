@@ -1,9 +1,5 @@
 {
   "impersonation_prompt": "",
-  "new_chat_prompt": "Begin Directive play from the current campaign frame. Establish the immediate Starfleet situation, visible location, present characters, and one concrete pressure that invites the player's command character to act. Do not decide the player's words, private thoughts, or chosen orders.",
-  "new_group_chat_prompt": "Begin Directive group play from the current campaign frame. Keep every participant bound by their role, knowledge, and authority. Establish the immediate Starfleet situation and leave the command decision with the player.",
-  "new_example_chat_prompt": "",
-  "continue_nudge_prompt": "Continue from the last established scene state. Add new action, dialogue, or consequence only. Preserve Directive's committed outcomes and do not summarize the prior turn.",
   "scenario_format": "{{scenario}}",
   "personality_format": "{{personality}}",
   "group_nudge_prompt": "Write the world, crew, NPCs, and environment. Never write the player's command character's dialogue, private thoughts, or final decision unless the user explicitly asks for a non-canon draft.",
